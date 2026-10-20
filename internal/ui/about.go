@@ -59,8 +59,10 @@ func (v *aboutView) render(a *app) string {
 		b.WriteString(ok.Render("Updated to "+a.updated+": restart to use it.") + "\n")
 	case a.latest != nil:
 		b.WriteString(ok.Render(a.latest.Tag+" is out.") + "  " + bold.Render("u") + " to update\n")
-	case !update.Checks(version):
+	case !update.IsRelease(version):
 		b.WriteString(muted.Render("A development build: it doesn’t check for updates.") + "\n")
+	case !updateCheck:
+		b.WriteString(muted.Render("Update checks are off (update_check in "+config.Path()+").") + "\n")
 	default:
 		b.WriteString(muted.Render("Up to date.") + "\n")
 	}

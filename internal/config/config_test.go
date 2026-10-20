@@ -25,6 +25,14 @@ func TestLoad(t *testing.T) {
 	if Load(path).BacklogSort != "manual" {
 		t.Fatal("an unknown sort was taken")
 	}
+	os.WriteFile(path, []byte("reports = off\nupdate_check = off\n"), 0o600)
+	if s := Load(path); s.Reports || s.UpdateCheck {
+		t.Fatalf("reports and update_check off: %+v", s)
+	}
+	os.WriteFile(path, []byte("reports = nope\n"), 0o600) // not on or off: the default stays
+	if !Load(path).Reports {
+		t.Fatal("reports = nope turned reporting off")
+	}
 	if Load(filepath.Join(t.TempDir(), "missing")) != Defaults() {
 		t.Fatal("a missing config isn't the defaults")
 	}
@@ -41,7 +49,7 @@ func TestConfigExample(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"keys", "backlog_sort"} { // every setting Load knows
+	for _, name := range []string{"keys", "backlog_sort", "reports", "update_check"} { // every setting Load knows
 		if !strings.Contains(string(b), "\n"+name+" = ") {
 			t.Fatalf("config.example lacks %s", name)
 		}

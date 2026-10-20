@@ -755,3 +755,15 @@ func TestDefaultBacklogSort(t *testing.T) {
 	press(a, "?")
 	expect(t, a, "Backlog  newest")
 }
+
+// update_check = off: a release build doesn't look for updates, and ? says why.
+func TestUpdateCheckOff(t *testing.T) {
+	version, updateCheck = "v1.0.0", false
+	t.Cleanup(func() { version, updateCheck = "dev", true })
+	a, _ := start(t)
+	if cmd := a.checkUpdate(); cmd != nil {
+		t.Fatal("checked for updates with update_check = off")
+	}
+	press(a, "?")
+	expect(t, a, "Version  v1.0.0", "Update checks are off (update_check in")
+}

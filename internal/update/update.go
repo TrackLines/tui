@@ -45,10 +45,11 @@ func (r Release) asset(name string) string {
 // binaryName is this machine's file in a release, e.g. tracklines-linux-arm64.
 func binaryName() string { return "tracklines-" + runtime.GOOS + "-" + runtime.GOARCH }
 
-// Checks: a release build (vX.Y.Z…) that hasn't been told not to.
-func Checks(version string) bool {
+// IsRelease: a release build (vX.Y.Z…), which can check for and install updates; a build of your
+// own ("dev") can't. Whether it does is the config's update_check.
+func IsRelease(version string) bool {
 	_, isRelease := semver(version)
-	return isRelease && os.Getenv("TRACKLINES_NO_UPDATE_CHECK") == ""
+	return isRelease
 }
 
 func Latest(ctx context.Context, client *http.Client) (Release, error) {

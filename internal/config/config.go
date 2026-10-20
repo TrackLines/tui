@@ -18,10 +18,16 @@ type Settings struct {
 	// BacklogSort is the order a backlog opens in: manual (its own order, the default), newest or
 	// oldest; s still cycles from there (TL-481).
 	BacklogSort string
+	// Reports: our own failures (the API failing, a crash) go to Bugfixes, so they get fixed.
+	Reports bool
+	// UpdateCheck: a release build looks for a newer release when it starts.
+	UpdateCheck bool
 }
 
 // Defaults is what you get with no config file.
-func Defaults() Settings { return Settings{VimKeys: true, BacklogSort: "manual"} }
+func Defaults() Settings {
+	return Settings{VimKeys: true, BacklogSort: "manual", Reports: true, UpdateCheck: true}
+}
 
 // Dir is $XDG_CONFIG_HOME/tracklines (~/.config): the key and the config.
 func Dir() string {
@@ -63,9 +69,23 @@ func Load(path string) Settings {
 			if v := strings.TrimSpace(value); v == "manual" || v == "newest" || v == "oldest" {
 				s.BacklogSort = v
 			}
+		case "reports":
+			onOff(value, &s.Reports)
+		case "update_check":
+			onOff(value, &s.UpdateCheck)
 		}
 	}
 	return s
+}
+
+// onOff sets b from "on" or "off"; anything else leaves the default.
+func onOff(value string, b *bool) {
+	switch strings.TrimSpace(value) {
+	case "on":
+		*b = true
+	case "off":
+		*b = false
+	}
 }
 
 // APIKey is TRACKLINES_API_KEY, or the first line of the key file (~/.config/tracklines/key).

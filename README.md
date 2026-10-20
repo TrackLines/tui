@@ -25,9 +25,9 @@ It's for the everyday work. You can follow a standup or refinement someone's run
 
    On Windows or macOS, or to build it yourself (Go 1.26+): `make install`, or `go install github.com/tracklines/tui/cmd/tracklines@latest`.
 
-   **Updates:** a release build checks GitHub for a newer release when it starts. If there is one, the header says so, and `?` then `u` installs it: it downloads the binary, checks it against `SHA256SUMS`, and replaces the one you're running. Restart to use it. `TRACKLINES_NO_UPDATE_CHECK=1` turns the check off. A build of your own (`make install`) doesn't check.
+   **Updates:** a release build checks GitHub for a newer release when it starts. If there is one, the header says so, and `?` then `u` installs it: it downloads the binary, checks it against `SHA256SUMS`, and replaces the one you're running. Restart to use it. `update_check = off` in the config turns the check off. A build of your own (`make install`) doesn't check.
 
-   Errors on our side (the API failing or unreachable, a crash) are reported to [Bugfixes](https://bugfix.es), so they get fixed. Reports never include your API key, what you searched for, or what you wrote. Set `TRACKLINES_NO_REPORTS=1` to turn reporting off. The local copy of each one goes to `~/.local/state/tracklines/tracklines.log`.
+   Errors on our side (the API failing or unreachable, a crash) are reported to [Bugfixes](https://bugfix.es), so they get fixed. Reports never include your API key, what you searched for, or what you wrote. `reports = off` in the config turns reporting off. The local copy of each one goes to `~/.local/state/tracklines/tracklines.log`.
 
 4. On Omarchy, add it to the app launcher:
 
@@ -73,10 +73,14 @@ mkdir -p ~/.config/tracklines && cp config.example ~/.config/tracklines/config
 |---|---|
 | `keys` | `vim` (the default): writing a ticket or comment works like vim. Typing is insert mode, `esc` is normal mode, and `:w` / `:wq` save, `:q` leaves (refused over unsaved text), `:q!` discards. `standard`: no modes; `ctrl+s` saves and `esc` cancels (twice over unsaved text). `ctrl+s` saves with either. |
 | `backlog_sort` | The order a backlog opens in: `manual` (the backlog's own order, the default), `newest` or `oldest`. `s` still cycles from there. |
+| `reports` | `on` (the default) sends the TUI's own failures to Bugfixes; `off` doesn't. Never your key, searches or what you wrote. |
+| `update_check` | `on` (the default): a release build looks for a newer release when it starts. `off` doesn't. |
 
 `?` shows which is in use.
 
-## Settings
+## Environment
+
+Everything else is in the config. These two stay as environment variables: the key is a secret, and the address is for pointing the TUI at another server (a test one).
 
 | Variable | Default |
 |---|---|

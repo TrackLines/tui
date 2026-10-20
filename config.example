@@ -14,3 +14,10 @@ keys = vim
 #   newest  newest first
 #   oldest  oldest first
 backlog_sort = manual
+
+# Send the TUI's own failures (the API failing or unreachable, a crash) to Bugfixes so they get fixed.
+# Reports never include your API key, what you searched for, or what you wrote. on | off
+reports = on
+
+# Look for a newer release when it starts (release builds only); ? then u installs it. on | off
+update_check = on
