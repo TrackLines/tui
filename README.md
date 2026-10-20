@@ -16,14 +16,20 @@ It's for the everyday work. You can follow a standup or refinement someone's run
    ```
 
    Or set `TRACKLINES_API_KEY` instead.
-3. Download it from [Releases](https://github.com/tracklines/tui/releases): `tracklines-linux-amd64` (x86) or `tracklines-linux-arm64` (arm), with `SHA256SUMS` to check it:
+3. Download it from [Releases](https://github.com/tracklines/tui/releases), with `SHA256SUMS` to check it:
+   - Linux: `tracklines-linux-amd64` (x86) or `tracklines-linux-arm64` (arm).
+   - macOS: `tracklines-darwin-arm64` (Apple silicon) or `tracklines-darwin-amd64` (Intel).
+
+   For example, on Linux x86:
 
    ```sh
    curl -fLo ~/.local/bin/tracklines https://github.com/tracklines/tui/releases/latest/download/tracklines-linux-amd64
    chmod +x ~/.local/bin/tracklines
    ```
 
-   On Windows or macOS, or to build it yourself (Go 1.26+): `make install`, or `go install github.com/tracklines/tui/cmd/tracklines@latest`.
+   On macOS, use `tracklines-darwin-arm64` or `-amd64` in that URL, into a folder on your `PATH` such as `/usr/local/bin`. The binary isn't signed: downloaded with `curl` it runs as is, but if you download it in a browser, macOS blocks it until you run `xattr -d com.apple.quarantine` on it.
+
+   On Windows, or to build it yourself (Go 1.26+): `make install`, or `go install github.com/tracklines/tui/cmd/tracklines@latest`.
 
    **Updates:** a release build checks GitHub for a newer release when it starts. If there is one, the header says so, and `?` then `u` installs it: it downloads the binary, checks it against `SHA256SUMS`, and replaces the one you're running. Restart to use it. `update_check = off` in the config turns the check off. A build of your own (`make install`) doesn't check.
 
