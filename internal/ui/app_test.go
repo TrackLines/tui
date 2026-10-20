@@ -739,3 +739,31 @@ func TestAboutAndUpdateNotice(t *testing.T) {
 	press(a, "?")
 	expect(t, a, "v0.2.0 is out.", "u to update")
 }
+
+// backlog_sort in the config: every backlog opens in that order, and s cycles on from there (TL-481).
+func TestDefaultBacklogSort(t *testing.T) {
+	backlogSort = "newest"
+	t.Cleanup(func() { backlogSort = "manual" })
+	a, calls := start(t)
+	press(a, "2", "enter", "j", "enter") // TrackLines → Backlog
+	expect(t, a, "TrackLines → Backlog", "sort: newest")
+	if !strings.Contains(last(calls), "sort=newest") {
+		t.Fatalf("opened unsorted: %s", last(calls))
+	}
+	press(a, "s")
+	expect(t, a, "sort: oldest")
+	press(a, "?")
+	expect(t, a, "Backlog  newest")
+}
+
+// update_check = off: a release build doesn't look for updates, and ? says why.
+func TestUpdateCheckOff(t *testing.T) {
+	version, updateCheck = "v1.0.0", false
+	t.Cleanup(func() { version, updateCheck = "dev", true })
+	a, _ := start(t)
+	if cmd := a.checkUpdate(); cmd != nil {
+		t.Fatal("checked for updates with update_check = off")
+	}
+	press(a, "?")
+	expect(t, a, "Version  v1.0.0", "Update checks are off (update_check in")
+}

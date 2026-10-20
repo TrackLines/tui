@@ -7,6 +7,7 @@ import (
 
 	bugfixes "github.com/bugfixes/go-bugfixes"
 	"github.com/bugfixes/go-bugfixes/logs"
+
 	"github.com/tracklines/tui/internal/config"
 )
 
@@ -14,7 +15,7 @@ import (
 // however they built it. ponytail: it ships in the binary like any client-side error reporter's key,
 // so anyone can read it and send to this agent; it only takes reports, and this agent is the TUI's
 // alone. A build can swap them with -ldflags -X. Not read from the environment, where a developer's
-// shell may hold another service's agent (the backend's). TRACKLINES_NO_REPORTS=1 turns reporting off.
+// shell may hold another service's agent (the backend's). reports = off in the config turns it off.
 var (
 	bugfixesKey    = "aa40e763-1957-457b-bd38-1066cccb34ca"
 	bugfixesSecret = "0a10b3bd-93d9-4302-981d-24a59e235336"
@@ -22,11 +23,12 @@ var (
 
 var on bool
 
-// Setup sends errors to Bugfixes as "tracklines-tui", release version. The SDK also writes each one to
+// Setup sends errors to Bugfixes as "tracklines-tui", release version, unless enabled is false (the
+// config's reports = off). The SDK also writes each one to
 // stderr, which would draw over the screen, so stderr goes to ~/.local/state/tracklines/tracklines.log
 // while it runs; the returned func puts it back.
-func Setup(version string) (restore func()) {
-	if bugfixesKey == "" || bugfixesSecret == "" || os.Getenv("TRACKLINES_NO_REPORTS") != "" {
+func Setup(version string, enabled bool) (restore func()) {
+	if bugfixesKey == "" || bugfixesSecret == "" || !enabled {
 		return func() {}
 	}
 	bugfixes.SetDefaultConfig(bugfixes.Config{

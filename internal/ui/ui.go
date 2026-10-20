@@ -126,7 +126,7 @@ func (a *app) Init() tea.Cmd {
 
 // checkUpdate looks for a newer release, quietly: no network, no answer, nothing shown.
 func (a *app) checkUpdate() tea.Cmd {
-	if !update.Checks(version) {
+	if !update.IsRelease(version) || !updateCheck {
 		return nil
 	}
 	return func() tea.Msg {
