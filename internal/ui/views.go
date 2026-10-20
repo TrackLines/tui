@@ -27,6 +27,8 @@ type listView struct {
 	mentions     []Mention // Mentions: who and when, per item
 	cursor       int
 	height       int      // rows to draw in; 0: the whole screen
+	hscroll      int      // how far the selected row's title is slid along (h/l), in characters
+	titleW       int      // the titles' width when last drawn, which caps hscroll
 	inactive     bool     // a section that isn't focused: no cursor shown
 	sort         string   // backlog: manual (its own order), newest or oldest
 	labels       []string // backlog: only tickets with any of these
@@ -68,13 +70,23 @@ func (v *listView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			}
 		}
 		v.cursor = min(v.cursor, max(len(v.items)-1, 0))
+		v.hscroll = 0
 	case tea.KeyMsg:
 		k := msg.String()
 		if cursorKeys(k, &v.cursor, len(v.items)) {
+			v.hscroll = 0 // a new row starts at the beginning of its title
 			return v, nil
 		}
 		switch k {
-		case "enter", "l":
+		case "h", "left": // slide the selected title along (TL-483); enter opens
+			v.hscroll = max(0, v.hscroll-scrollStep)
+		case "l", "right":
+			v.hscroll = min(v.maxScroll(), v.hscroll+scrollStep)
+		case "0":
+			v.hscroll = 0
+		case "$":
+			v.hscroll = v.maxScroll()
+		case "enter":
 			if len(v.items) > 0 {
 				return v, msgOf(pushMsg{&ticketView{id: v.items[v.cursor].ID}})
 			}
@@ -133,9 +145,13 @@ func (v *listView) render(a *app) string {
 	// one width for every title (the longest, or what's left beside the widest extra), so the labels
 	// or location after them line up in a column
 	titleW := min(longest, max(20, a.width-12-widest-2))
+	v.titleW = titleW
 	rows := make([]string, len(v.items))
 	for i, t := range v.items {
 		title := cut(t.Title, titleW)
+		if i == v.cursor && !v.inactive {
+			title = slide(t.Title, v.hscroll, titleW)
+		}
 		row := fmt.Sprintf("%-9s %s%s  %s", t.Key, title, strings.Repeat(" ", max(0, titleW-lipgloss.Width(title))), muted.Render(extras[i]))
 		if p := t.Priority; p == "urgent" || p == "high" {
 			row += " " + priority(p)
@@ -152,13 +168,32 @@ func (v *listView) render(a *app) string {
 	return b.String() + lines(rows, cursor, height)
 }
 
+const scrollStep = 4 // characters per h/l
+
+// maxScroll is how far the selected title can slide: until its end shows.
+func (v *listView) maxScroll() int {
+	if len(v.items) == 0 || v.titleW < 2 {
+		return 0
+	}
+	return max(0, len([]rune(v.items[v.cursor].Title))-(v.titleW-1))
+}
+
+// slide is title from character from, in width cells: "…" first when it doesn't start at the beginning.
+func slide(title string, from, width int) string {
+	r := []rune(title)
+	if from <= 0 || from >= len(r) {
+		return cut(title, width)
+	}
+	return "…" + cut(string(r[from:]), width-1)
+}
+
 func (v *listView) help() string {
-	h := "j/k move · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit"
+	h := "j/k move · h/l scroll title · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit"
 	if v.project != "" {
-		h = "j/k move · enter open · n new ticket · s sort · f labels · esc/q back · Q quit"
+		h = "j/k move · h/l scroll title · enter open · n new ticket · s sort · f labels · esc/q back · Q quit"
 	}
 	if v.query != "" {
-		h = "j/k move · enter open · / search again · esc/q back · Q quit"
+		h = "j/k move · h/l scroll title · enter open · / search again · esc/q back · Q quit"
 	}
 	return h
 }
@@ -280,7 +315,7 @@ func (v *homeView) help() string {
 	if len(v.live) > 0 {
 		h = "tab running now/my work/mentions"
 	}
-	return h + " · j/k move · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit"
+	return h + " · j/k move · h/l scroll title · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit"
 }
 func (v *homeView) typing() bool { return false }
 

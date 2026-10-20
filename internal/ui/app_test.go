@@ -767,3 +767,55 @@ func TestUpdateCheckOff(t *testing.T) {
 	press(a, "?")
 	expect(t, a, "Version  v1.0.0", "Update checks are off (update_check in")
 }
+
+// h/l slide the selected row's title along so a long one can be read; the other rows stay put, and a
+// new row starts at the beginning (TL-483). l no longer opens: enter does.
+func TestScrollingATitle(t *testing.T) {
+	a := newApp(&Client{})
+	a.width, a.height = 60, 30
+	long := "Make the payment retries back off exponentially and give up after a day"
+	v := &listView{tag: "backlog:p1", heading: "Backlog", project: "p1", items: []Ticket{
+		{ID: "t1", Key: "TL-1", Title: long, Labels: []string{"api"}},
+		{ID: "t2", Key: "TL-2", Title: "Another rather long title that also gets cut short", Labels: []string{"ux"}},
+	}}
+	a.stack = []view{v}
+	row := func(key string) string {
+		for _, l := range strings.Split(a.View(), "\n") {
+			if strings.Contains(l, key) {
+				return l
+			}
+		}
+		return ""
+	}
+	before, other := row("TL-1"), row("TL-2")
+	if !strings.Contains(before, "Make the payment") || strings.Contains(before, "give up after a day") {
+		t.Fatalf("not cut to start with: %q", before)
+	}
+	press(a, "l", "l")
+	if got := row("TL-1"); !strings.Contains(got, "…") || strings.Contains(got, "Make the") || got == before {
+		t.Fatalf("l didn't slide the title: %q", got)
+	}
+	if row("TL-2") != other {
+		t.Fatal("another row moved")
+	}
+	if a.top() != view(v) {
+		t.Fatal("l opened the ticket")
+	}
+	press(a, "$")
+	if got := row("TL-1"); !strings.Contains(got, "give up after a day ") {
+		t.Fatalf("$ didn't reach the end: %q", got)
+	}
+	press(a, "h")
+	press(a, "0")
+	if row("TL-1") != before {
+		t.Fatalf("0 didn't go back to the start: %q", row("TL-1"))
+	}
+	press(a, "$", "j", "k") // another row and back: from the start again
+	if row("TL-1") != before {
+		t.Fatalf("the title stayed slid after moving rows: %q", row("TL-1"))
+	}
+	press(a, "l", "l", "l", "l", "l", "l", "l", "l", "l", "l", "l", "l", "l", "l", "l", "l", "l", "l", "l", "l") // can't slide past its end
+	if v.hscroll != v.maxScroll() {
+		t.Fatalf("slid past the end: %d of %d", v.hscroll, v.maxScroll())
+	}
+}
