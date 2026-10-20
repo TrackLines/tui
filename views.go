@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -153,23 +154,51 @@ func (v *listView) help() string {
 
 func (v *listView) typing() bool { return false }
 
-// homeView is My work and Mentions together, one above the other; tab moves between them.
+// homeView is My work and Mentions together, one above the other, with any standup or refinement
+// running in the organization on top (enter follows it); tab moves between the sections.
 type homeView struct {
-	sections [2]*listView
-	focus    int
+	sections  [2]*listView
+	live      []liveSession
+	liveAt    time.Time // when the sessions were last looked for
+	liveRow   int
+	focus     int // 0 My work, 1 Mentions, 2 running sessions
+	forceLive bool
 }
+
+const liveEvery = 30 * time.Second // look for sessions again at most this often when coming back here
 
 func newHome() *homeView {
 	return &homeView{sections: [2]*listView{{tag: "mywork", heading: "My work"}, {tag: "mentions", heading: "Mentions"}}}
 }
 
 func (v *homeView) load(a *app) tea.Cmd {
-	return tea.Batch(v.sections[0].load(a), v.sections[1].load(a))
+	cmds := []tea.Cmd{v.sections[0].load(a), v.sections[1].load(a)}
+	if v.forceLive || time.Since(v.liveAt) > liveEvery {
+		v.liveAt, v.forceLive = time.Now(), false
+		cmds = append(cmds, fetch("live", func(ctx context.Context) (any, error) { return runningSessions(ctx, a.api) }))
+	}
+	return tea.Batch(cmds...)
+}
+
+// order is the sections tab goes through, top to bottom: sessions only while there are some.
+func (v *homeView) order() []int {
+	if len(v.live) > 0 {
+		return []int{2, 0, 1}
+	}
+	return []int{0, 1}
 }
 
 func (v *homeView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	switch msg := msg.(type) {
 	case loadedMsg: // each section takes its own
+		if l, isLive := msg.data.([]liveSession); isLive && msg.tag == "live" {
+			v.live = l
+			v.liveRow = min(v.liveRow, max(len(l)-1, 0))
+			if v.focus == 2 && len(l) == 0 {
+				v.focus = 0
+			}
+			return v, nil
+		}
 		var cmds []tea.Cmd
 		for _, s := range v.sections {
 			_, cmd := s.update(a, msg)
@@ -179,11 +208,26 @@ func (v *homeView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "tab", "shift+tab":
-			v.focus = 1 - v.focus
+			o := v.order()
+			d := 1
+			if msg.String() == "shift+tab" {
+				d = -1
+			}
+			v.focus = o[(indexOf(o, v.focus)+d+len(o))%len(o)]
 			return v, nil
 		case "r":
-			a.loading = true
+			a.loading, v.forceLive = true, true
 			return v, v.load(a)
+		}
+		if v.focus == 2 {
+			if cursorKeys(msg.String(), &v.liveRow, len(v.live)) {
+				return v, nil
+			}
+			if k := msg.String(); (k == "enter" || k == "f") && len(v.live) > 0 {
+				l := v.live[v.liveRow]
+				return v, msgOf(pushMsg{&followView{kind: l.kind, id: l.id, name: l.name}})
+			}
+			return v, nil
 		}
 	}
 	_, cmd := v.sections[v.focus].update(a, msg)
@@ -191,10 +235,28 @@ func (v *homeView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 }
 
 func (v *homeView) render(a *app) string {
-	// My work gets the larger share; Mentions what's left, at least a few rows
-	mentions := max(3, (a.rows()-4)/3)
-	v.sections[0].height, v.sections[1].height = max(3, a.rows()-4-mentions-4), mentions
 	var out []string
+	used := 0
+	if len(v.live) > 0 {
+		rows := make([]string, len(v.live))
+		for i, l := range v.live {
+			where := l.name
+			if l.where != "" {
+				where = l.where + " → " + l.name
+			}
+			rows[i] = ok.Render("● ") + strings.ToUpper(l.kind[:1]) + l.kind[1:] + " on " + bold.Render(where) + muted.Render(", hosted by "+a.name(l.host))
+		}
+		cursor := -1
+		if v.focus == 2 {
+			cursor = v.liveRow
+		}
+		out = append(out, accent.Render("Running now")+muted.Render("  enter to follow")+"\n"+lines(rows, cursor, 3))
+		used = min(len(rows), 3) + 2
+	}
+	// My work gets the larger share; Mentions what's left, at least a few rows
+	rest := a.rows() - used
+	mentions := max(3, (rest-4)/3)
+	v.sections[0].height, v.sections[1].height = max(3, rest-4-mentions-4), mentions
 	for i, s := range v.sections {
 		s.inactive = i != v.focus
 		out = append(out, s.render(a))
@@ -203,7 +265,11 @@ func (v *homeView) render(a *app) string {
 }
 
 func (v *homeView) help() string {
-	return "tab my work/mentions · j/k move · enter open · / search · t go to · 1 2 tabs · r reload · ? help · q quit"
+	h := "tab my work/mentions"
+	if len(v.live) > 0 {
+		h = "tab running now/my work/mentions"
+	}
+	return h + " · j/k move · enter open · / search · t go to · 1 2 tabs · r reload · ? help · q quit"
 }
 func (v *homeView) typing() bool { return false }
 

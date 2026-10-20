@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,6 +24,7 @@ var (
 // estimates), TL-1 on it, TL-2 in the backlog, and a mention.
 func fakeAPI(t *testing.T) (*Client, *[]string) {
 	var calls []string
+	var mu sync.Mutex
 	ticket := func(id string) map[string]any {
 		if id == "t2" {
 			return map[string]any{"id": "t2", "key": "TL-2", "title": "Idea", "project_id": "p1"}
@@ -43,10 +45,20 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 		var body map[string]any
 		json.NewDecoder(r.Body).Decode(&body)
 		b, _ := json.Marshal(body)
+		mu.Lock() // the TUI asks some things side by side (running sessions)
 		calls = append(calls, r.Method+" "+r.URL.RequestURI()+" "+string(b))
+		mu.Unlock()
 		var out any
 		session := map[string]any{"host": "user_2", "people": []string{"user_2", "user_1"}, "focus": map[string]any{"ticketId": liveFocus}}
 		switch p := r.URL.Path; {
+		case p == "/api/live/sessions":
+			out = []any{}
+			if liveRunning {
+				out = []map[string]any{
+					{"kind": "refinement", "id": "p1", "name": "TrackLines", "project_id": "p1", "project_name": "TrackLines", "host": "user_2"},
+					{"kind": "standup", "id": "b1", "name": "Web", "project_id": "p1", "project_name": "TrackLines", "host": "user_2"},
+				}
+			}
 		case strings.Contains(p, "/live/"):
 			if !liveRunning {
 				http.Error(w, "no session running", http.StatusNotFound)
@@ -579,4 +591,40 @@ func TestFollowingSessions(t *testing.T) {
 			}
 		}
 	}
+}
+
+// My work shows what's running in the organization (one request, TL-466), and enter follows it; coming
+// back doesn't look again straight away, r does.
+func TestMyWorkShowsRunningSessions(t *testing.T) {
+	liveRunning, liveFocus = true, nil
+	t.Cleanup(func() { liveRunning, liveFocus = false, nil })
+	a, calls := start(t)
+	expect(t, a, "Running now", "Refinement on TrackLines", "Standup on TrackLines → Web", "hosted by Alex Roe", "tab running now/my work/mentions")
+	count := func() (n int) {
+		for _, c := range *calls {
+			if strings.HasPrefix(c, "GET /api/live/sessions ") {
+				n++
+			}
+		}
+		return n
+	}
+	before := count()
+	press(a, "tab", "tab", "j", "enter") // Mentions, then Running now; the standup
+	expect(t, a, "Following the standup on Web")
+	press(a, "esc")
+	expect(t, a, "Running now")
+	if count() != before {
+		t.Fatal("looked for sessions again on coming back")
+	}
+	press(a, "r")
+	if count() != before+1 {
+		t.Fatal("r didn't look for sessions again")
+	}
+	// nothing running: no section, and tab is just My work and Mentions
+	liveRunning = false
+	press(a, "r")
+	if strings.Contains(a.View(), "Running now") {
+		t.Fatalf("ended sessions still shown:\n%s", a.View())
+	}
+	expect(t, a, "tab my work/mentions ·")
 }
