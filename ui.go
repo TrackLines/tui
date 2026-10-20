@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -75,6 +76,20 @@ func tabView(i int) view {
 
 func (a *app) top() view { return a.stack[len(a.stack)-1] }
 
+// closer is a screen that has something to tidy up when it's left (following a session: leave it).
+type closer interface{ close(a *app) tea.Cmd }
+
+// leaving runs the close of each screen about to go (the top n).
+func (a *app) leaving(n int) tea.Cmd {
+	var cmds []tea.Cmd
+	for _, v := range a.stack[max(0, len(a.stack)-n):] {
+		if c, isCloser := v.(closer); isCloser {
+			cmds = append(cmds, c.close(a))
+		}
+	}
+	return tea.Batch(cmds...)
+}
+
 func (a *app) Init() tea.Cmd {
 	a.loading = true
 	return tea.Batch(a.top().load(a), func() tea.Msg {
@@ -114,15 +129,20 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.loading = true
 		return a, msg.v.load(a)
 	case popMsg:
+		var bye tea.Cmd
 		if len(a.stack) > 1 {
+			bye = a.leaving(1)
 			a.stack = a.stack[:len(a.stack)-1]
 		}
 		a.status, a.loading = msg.status, true
-		return a, a.top().load(a)
+		return a, tea.Batch(bye, a.top().load(a))
 	case loadedMsg:
 		a.loading = false
 		if msg.err != nil {
 			a.status = warn.Render(msg.err.Error())
+			if f, isFollow := a.top().(*followView); isFollow && f.tag() == msg.tag {
+				return a, msgOf(popMsg{a.status}) // the session ended (or went): back, saying so
+			}
 			return a, nil
 		}
 	case statusMsg:
@@ -134,7 +154,7 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.top().load(a) // show it as it is now
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
-			return a, tea.Quit
+			return a, a.quit()
 		}
 		if !a.top().typing() {
 			switch k := msg.String(); k {
@@ -144,12 +164,13 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return a, tea.Quit
 			case "Q": // quit from anywhere
-				return a, tea.Quit
+				return a, a.quit()
 			case "1", "2":
+				bye := a.leaving(len(a.stack))
 				a.tab = int(k[0] - '1')
 				a.stack = []view{tabView(a.tab)}
 				a.status, a.loading = "", true
-				return a, a.top().load(a)
+				return a, tea.Batch(bye, a.top().load(a))
 			case "/":
 				return a, msgOf(pushMsg{newSearch()})
 			case "t": // go to a ticket by its key
@@ -182,6 +203,18 @@ func (a *app) View() string {
 		foot = a.status + "\n" + foot
 	}
 	return strings.Join(head, " ") + "\n\n" + a.top().render(a) + "\n" + foot
+}
+
+// quit leaves any session being followed first (briefly: quitting mustn't hang), then quits.
+func (a *app) quit() tea.Cmd {
+	for _, v := range a.stack {
+		if f, isFollow := v.(*followView); isFollow {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			_ = a.api.Leave(ctx, f.kind, f.id)
+			cancel()
+		}
+	}
+	return tea.Quit
 }
 
 // rows is how many lines a screen's body can use.
