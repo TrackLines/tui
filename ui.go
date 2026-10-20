@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -41,6 +42,8 @@ type app struct {
 	loading       bool
 	people        map[string]string
 	me            string
+	latest        *release // a newer release than this one, when there is
+	updated       string   // the release just installed: restart to use it
 }
 
 type (
@@ -90,12 +93,28 @@ func (a *app) leaving(n int) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+type latestMsg release
+
 func (a *app) Init() tea.Cmd {
 	a.loading = true
-	return tea.Batch(a.top().load(a), func() tea.Msg {
+	return tea.Batch(a.top().load(a), a.checkUpdate(), func() tea.Msg {
 		p, me, _ := a.api.People(context.Background()) // ponytail: without names, comments show ids; not worth an error
 		return peopleMsg{p, me}
 	})
+}
+
+// checkUpdate looks for a newer release, quietly: no network, no answer, nothing shown.
+func (a *app) checkUpdate() tea.Cmd {
+	if !checksUpdates() {
+		return nil
+	}
+	return func() tea.Msg {
+		r, err := latestRelease(context.Background(), http.DefaultClient)
+		if err != nil || !newer(r.Tag, version) {
+			return nil
+		}
+		return latestMsg(r)
+	}
 }
 
 // fetch runs f off the UI and hands its result back tagged for the screen that asked.
@@ -119,6 +138,10 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.width, a.height = msg.Width, msg.Height
 	case peopleMsg:
 		a.people, a.me = msg.people, msg.me
+		return a, nil
+	case latestMsg:
+		r := release(msg)
+		a.latest = &r
 		return a, nil
 	case pushMsg:
 		a.stack = append(a.stack, msg.v)
@@ -173,6 +196,10 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, tea.Batch(bye, a.top().load(a))
 			case "/":
 				return a, msgOf(pushMsg{newSearch()})
+			case "?":
+				if _, already := a.top().(*aboutView); !already {
+					return a, msgOf(pushMsg{&aboutView{}})
+				}
 			case "t": // go to a ticket by its key
 				return a, msgOf(pushMsg{newGoto()})
 			case "esc", "backspace":
@@ -201,6 +228,9 @@ func (a *app) View() string {
 		foot = muted.Render("Loading…  ") + foot
 	} else if a.status != "" {
 		foot = a.status + "\n" + foot
+	}
+	if a.latest != nil {
+		head = append(head, ok.Render(" "+a.latest.Tag+" is out · ? to update"))
 	}
 	return strings.Join(head, " ") + "\n\n" + a.top().render(a) + "\n" + foot
 }
