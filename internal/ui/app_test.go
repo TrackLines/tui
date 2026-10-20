@@ -739,3 +739,19 @@ func TestAboutAndUpdateNotice(t *testing.T) {
 	press(a, "?")
 	expect(t, a, "v0.2.0 is out.", "u to update")
 }
+
+// backlog_sort in the config: every backlog opens in that order, and s cycles on from there (TL-481).
+func TestDefaultBacklogSort(t *testing.T) {
+	backlogSort = "newest"
+	t.Cleanup(func() { backlogSort = "manual" })
+	a, calls := start(t)
+	press(a, "2", "enter", "j", "enter") // TrackLines → Backlog
+	expect(t, a, "TrackLines → Backlog", "sort: newest")
+	if !strings.Contains(last(calls), "sort=newest") {
+		t.Fatalf("opened unsorted: %s", last(calls))
+	}
+	press(a, "s")
+	expect(t, a, "sort: oldest")
+	press(a, "?")
+	expect(t, a, "Backlog  newest")
+}

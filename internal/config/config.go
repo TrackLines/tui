@@ -15,10 +15,13 @@ type Settings struct {
 	// VimKeys: writing tickets and comments works like vim (modes, :w, :q), the default; keys =
 	// standard turns that off: no modes, ctrl+s saves, esc cancels (TL-475).
 	VimKeys bool
+	// BacklogSort is the order a backlog opens in: manual (its own order, the default), newest or
+	// oldest; s still cycles from there (TL-481).
+	BacklogSort string
 }
 
 // Defaults is what you get with no config file.
-func Defaults() Settings { return Settings{VimKeys: true} }
+func Defaults() Settings { return Settings{VimKeys: true, BacklogSort: "manual"} }
 
 // Dir is $XDG_CONFIG_HOME/tracklines (~/.config): the key and the config.
 func Dir() string {
@@ -55,6 +58,10 @@ func Load(path string) Settings {
 				s.VimKeys = true
 			case "standard":
 				s.VimKeys = false
+			}
+		case "backlog_sort":
+			if v := strings.TrimSpace(value); v == "manual" || v == "newest" || v == "oldest" {
+				s.BacklogSort = v
 			}
 		}
 	}

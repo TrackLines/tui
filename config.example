@@ -8,3 +8,9 @@
 #   standard  no modes: ctrl+s saves, esc cancels (twice over unsaved text)
 # ctrl+s saves with either.
 keys = vim
+
+# The order a backlog opens in (s still cycles through them):
+#   manual  the backlog's own order
+#   newest  newest first
+#   oldest  oldest first
+backlog_sort = manual

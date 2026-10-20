@@ -25,18 +25,23 @@ type (
 
 // Settings that come from outside the screens: set by New.
 var (
-	version = "dev"
-	vimKeys = true // writing works like vim (modes, :w, :q); false: standard keys (config keys = standard)
+	version     = "dev"
+	vimKeys     = true     // writing works like vim (modes, :w, :q); false: standard keys (config keys = standard)
+	backlogSort = "manual" // the order a backlog opens in (config backlog_sort)
 )
 
 // Options is what the TUI is started with.
 type Options struct {
-	Version string // this build's, for the ? screen and update checks
-	VimKeys bool   // config: keys = vim (true) or standard
+	Version     string // this build's, for the ? screen and update checks
+	VimKeys     bool   // config: keys = vim (true) or standard
+	BacklogSort string // config: backlog_sort = manual, newest or oldest
 }
 
 // New is the TUI, ready to run with Bubble Tea.
 func New(client *Client, o Options) tea.Model {
 	version, vimKeys = o.Version, o.VimKeys
+	if o.BacklogSort != "" {
+		backlogSort = o.BacklogSort
+	}
 	return newApp(client)
 }

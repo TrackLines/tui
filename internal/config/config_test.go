@@ -17,6 +17,14 @@ func TestLoad(t *testing.T) {
 	if !Load(path).VimKeys {
 		t.Fatal("keys=vim not read")
 	}
+	os.WriteFile(path, []byte("backlog_sort = newest\n"), 0o600)
+	if s := Load(path); s.BacklogSort != "newest" || !s.VimKeys {
+		t.Fatalf("backlog_sort = newest: %+v", s)
+	}
+	os.WriteFile(path, []byte("backlog_sort = sideways\n"), 0o600) // not a sort: the default stays
+	if Load(path).BacklogSort != "manual" {
+		t.Fatal("an unknown sort was taken")
+	}
 	if Load(filepath.Join(t.TempDir(), "missing")) != Defaults() {
 		t.Fatal("a missing config isn't the defaults")
 	}
@@ -33,7 +41,7 @@ func TestConfigExample(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"keys"} { // every setting Load knows
+	for _, name := range []string{"keys", "backlog_sort"} { // every setting Load knows
 		if !strings.Contains(string(b), "\n"+name+" = ") {
 			t.Fatalf("config.example lacks %s", name)
 		}

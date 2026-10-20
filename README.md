@@ -72,6 +72,7 @@ mkdir -p ~/.config/tracklines && cp config.example ~/.config/tracklines/config
 | Name | Values |
 |---|---|
 | `keys` | `vim` (the default): writing a ticket or comment works like vim. Typing is insert mode, `esc` is normal mode, and `:w` / `:wq` save, `:q` leaves (refused over unsaved text), `:q!` discards. `standard`: no modes; `ctrl+s` saves and `esc` cancels (twice over unsaved text). `ctrl+s` saves with either. |
+| `backlog_sort` | The order a backlog opens in: `manual` (the backlog's own order, the default), `newest` or `oldest`. `s` still cycles from there. |
 
 `?` shows which is in use.
 

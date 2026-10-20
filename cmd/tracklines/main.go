@@ -38,7 +38,7 @@ func main() {
 	client := &api.Client{Base: base, Key: key, HTTP: http.DefaultClient, OnFailure: reporting.APIFailure}
 	settings := config.Load(config.Path())
 	restore := reporting.Setup(version)
-	_, err = tea.NewProgram(ui.New(client, ui.Options{Version: version, VimKeys: settings.VimKeys}), tea.WithAltScreen()).Run()
+	_, err = tea.NewProgram(ui.New(client, ui.Options{Version: version, VimKeys: settings.VimKeys, BacklogSort: settings.BacklogSort}), tea.WithAltScreen()).Run()
 	if err != nil {
 		// ponytail: Bubble Tea recovers a panic and prints its stack itself; Bugfixes gets that it happened
 		reporting.Report("tui stopped: %v", err)

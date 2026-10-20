@@ -469,7 +469,7 @@ func (v *projectView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			if v.cursor < len(v.project.Boards) {
 				return v, msgOf(pushMsg{&boardView{id: v.project.Boards[v.cursor].ID, project: v.project.Name}})
 			}
-			return v, msgOf(pushMsg{&listView{tag: "backlog:" + v.id, heading: v.project.Name + " → Backlog", project: v.id}})
+			return v, msgOf(pushMsg{&listView{tag: "backlog:" + v.id, heading: v.project.Name + " → Backlog", project: v.id, sort: backlogSort}})
 		}
 	}
 	return v, nil

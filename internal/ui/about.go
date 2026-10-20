@@ -68,6 +68,7 @@ func (v *aboutView) render(a *app) string {
 	if !vimKeys {
 		keys, other = "standard", "vim"
 	}
+	b.WriteString("Backlog  " + bold.Render(backlogSort) + muted.Render("  first (backlog_sort in "+config.Path()+")") + "\n")
 	b.WriteString("Keys     " + bold.Render(keys) + muted.Render("  (for "+other+": keys = "+other+" in "+config.Path()+")") + "\n")
 	b.WriteString("\n" + bold.Render("Everywhere") + "\n")
 	for _, k := range [][2]string{
