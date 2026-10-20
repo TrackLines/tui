@@ -40,7 +40,8 @@ jobs:
           name: tracklines-linux-${{ matrix.arch }}
           path: tracklines-linux-${{ matrix.arch }}
 
-  # A v* tag publishes the binaries as a GitHub release.
+  # A v* tag publishes the binaries as a GitHub release. The release may already exist (made on GitHub,
+  # which pushes the tag): then the binaries are added to it.
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
@@ -57,4 +58,7 @@ jobs:
         run: |
           chmod +x tracklines-linux-*
           sha256sum tracklines-linux-* > SHA256SUMS
-          gh release create "${GITHUB_REF_NAME}" tracklines-linux-* SHA256SUMS --repo "${GITHUB_REPOSITORY}" --generate-notes
+          if ! gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release create "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --generate-notes
+          fi
+          gh release upload "${GITHUB_REF_NAME}" tracklines-linux-* SHA256SUMS --repo "${GITHUB_REPOSITORY}" --clobber
