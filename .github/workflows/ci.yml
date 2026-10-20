@@ -13,8 +13,10 @@ jobs:
       - run: go vet ./...
       - run: go test ./...
 
-  # Linux on x86 and arm (Omarchy's machines). Windows and macOS users can build it themselves.
+  # Linux on x86 and arm (Omarchy's machines), only for a v* tag (a release made on GitHub pushes
+  # one). Pushes and PRs just test. Windows and macOS users can build it themselves.
   build:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: test
     runs-on: ubuntu-latest
     strategy:

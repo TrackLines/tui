@@ -2,7 +2,7 @@
 
 [TrackLin.es](https://tracklin.es) in the terminal: My work, Mentions, projects and their boards and backlogs. You can create, edit, move, assign and comment on tickets without leaving the keyboard. It's built in the spirit of [Omarchy](https://omarchy.org): vim keys, one small binary, and the terminal's own colours, so it follows whatever theme is active.
 
-It's for the everyday work. Settings, API keys, standups and refinement stay in the web app.
+It's for the everyday work. You can follow a standup or refinement someone's running, but starting and hosting them, settings and API keys stay in the web app.
 
 ## Set up
 
@@ -47,6 +47,8 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `/` search everything
 | Board | `h`/`l` column · `j`/`k` ticket · `enter` open · `H`/`L` move the ticket a column left/right · `n` new ticket in this column · `r` reload |
 | Ticket | `j`/`k` scroll · `e` edit · `m` move to a column · `c` comment · `a` assign to you (again: unassign) · `r` reload |
 | New / edit ticket | Typing is insert mode; `esc` leaves it. Then `tab` or `j`/`k` field · `i`/`enter` edit · `h`/`l` change type, priority, estimate · `q` cancel · `ctrl+s` save (any time) |
+| Board / project | `f` follows its standup / refinement, when one's running (the banner says so) |
+| Following | it moves with the host: who's here, whose turn, the ticket they have open · `esc`/`q` leave |
 | Comment | Like vim: `esc` normal mode · `i a I A o O` insert · `h j k l w b 0 $ g G` move · `x`, `dd` delete · `enter` or `ctrl+s` send · `q` cancel (twice if there's text) |
 
 - **My work** is your open tickets on every board and project, the same list as the web app.
@@ -68,4 +70,4 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `/` search everything
 go test ./...
 ```
 
-CI (`.github/workflows/ci.yml`) runs vet and the tests on every push, and builds static Linux binaries for amd64 and arm64. Pushing a `v*` tag (e.g. `git tag v0.1.0 && git push --tags`) publishes them as a GitHub release.
+CI (`.github/workflows/ci.yml`) runs vet and the tests on every push and pull request. A `v*` tag, from making a release on GitHub or `git tag v0.1.0 && git push --tags`, also builds static Linux binaries for amd64 and arm64 and attaches them to the release.

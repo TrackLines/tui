@@ -348,13 +348,14 @@ func (v *projectsView) typing() bool { return false }
 
 // projectView is a project's boards, and its backlog.
 type projectView struct {
-	id      string
-	project *Project
-	cursor  int
+	id         string
+	project    *Project
+	cursor     int
+	refinement *Session // a refinement running on it
 }
 
 func (v *projectView) load(a *app) tea.Cmd {
-	return fetch("project:"+v.id, func(ctx context.Context) (any, error) { return a.api.Project(ctx, v.id) })
+	return tea.Batch(fetch("project:"+v.id, func(ctx context.Context) (any, error) { return a.api.Project(ctx, v.id) }), running(a, "refinement", v.id))
 }
 
 func (v *projectView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
@@ -363,9 +364,15 @@ func (v *projectView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		if p, isProject := msg.data.(Project); isProject && msg.tag == "project:"+v.id {
 			v.project = &p
 		}
+		if s, isSession := msg.data.(*Session); isSession && msg.tag == "running:refinement:"+v.id {
+			v.refinement = s
+		}
 	case tea.KeyMsg:
 		if v.project == nil {
 			return v, nil
+		}
+		if msg.String() == "f" && v.refinement != nil {
+			return v, msgOf(pushMsg{&followView{kind: "refinement", id: v.id, name: v.project.Name}})
 		}
 		n := len(v.project.Boards) + 1 // the backlog is last
 		if cursorKeys(msg.String(), &v.cursor, n) {
@@ -398,7 +405,7 @@ func (v *projectView) render(a *app) string {
 	if d := strings.TrimSpace(v.project.Description); d != "" {
 		head += "\n" + muted.Render(wrap(d, a.width))
 	}
-	return head + "\n\n" + lines(rows, v.cursor, a.rows()-4)
+	return head + "\n" + sessionBanner(a, "refinement", v.refinement) + "\n" + lines(rows, v.cursor, a.rows()-4)
 }
 
 func (v *projectView) help() string { return "j/k move · enter open · esc/q back · Q quit" }
@@ -408,14 +415,15 @@ func (v *projectView) typing() bool { return false }
 // ticket to the column either side, n makes a new one in this column.
 type boardView struct {
 	id         string
-	project    string // its project's name: the board doesn't carry it
+	standup    *Session // a standup running on it
+	project    string   // its project's name: the board doesn't carry it
 	board      *Board
 	col, row   int
 	firstShown int // the leftmost column on screen, when they don't all fit
 }
 
 func (v *boardView) load(a *app) tea.Cmd {
-	return fetch("board:"+v.id, func(ctx context.Context) (any, error) { return a.api.Board(ctx, v.id) })
+	return tea.Batch(fetch("board:"+v.id, func(ctx context.Context) (any, error) { return a.api.Board(ctx, v.id) }), running(a, "standup", v.id))
 }
 
 func (v *boardView) current() *Ticket {
@@ -428,6 +436,9 @@ func (v *boardView) current() *Ticket {
 func (v *boardView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	switch msg := msg.(type) {
 	case loadedMsg:
+		if s, isSession := msg.data.(*Session); isSession && msg.tag == "running:standup:"+v.id {
+			v.standup = s
+		}
 		if b, isBoard := msg.data.(Board); isBoard && msg.tag == "board:"+v.id {
 			v.board = &b
 			v.col = min(v.col, max(len(b.Columns)-1, 0))
@@ -453,6 +464,10 @@ func (v *boardView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			}
 		case "n":
 			return v, msgOf(pushMsg{newForm(nil, v.board.ProjectID, cols[v.col].ID, v.board.EstimateScale)})
+		case "f":
+			if v.standup != nil {
+				return v, msgOf(pushMsg{&followView{kind: "standup", id: v.id, name: v.board.Name}})
+			}
 		case "H", "L":
 			t := v.current()
 			to := v.col - 1
@@ -524,7 +539,7 @@ func (v *boardView) render(a *app) string {
 	if v.project != "" {
 		title = v.project + " → " + title // e.g. BugFixes → LandingPage
 	}
-	return accent.Render(title) + more + "\n\n" + lipgloss.JoinHorizontal(lipgloss.Top, intersperse(blocks)...)
+	return accent.Render(title) + more + "\n" + sessionBanner(a, "standup", v.standup) + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, intersperse(blocks)...)
 }
 
 // intersperse puts a gap between the columns.

@@ -280,6 +280,61 @@ func (c *Client) Assign(ctx context.Context, ticket string, to *string) error {
 	return c.do(ctx, http.MethodPut, "/tickets/"+url.PathEscape(ticket)+"/assignee", map[string]any{"assignee": to}, nil)
 }
 
+// Session is a standup or refinement someone is hosting: who, who's there, and what they have open.
+type Session struct {
+	Host  string `json:"host"`
+	Focus struct {
+		TicketID *string `json:"ticketId"`
+	} `json:"focus"`
+	People []string `json:"people"`
+}
+
+// StandupTurn is a running standup's order and whose turn it is.
+type StandupTurn struct {
+	People []struct {
+		ID    string `json:"id"`
+		Label string `json:"label"`
+	} `json:"people"`
+	Index        int    `json:"index"`
+	RunningSince *int64 `json:"runningSince"` // nil: paused
+}
+
+// sessionBase is where a session lives: a board's standup, or a project's refinement.
+func sessionBase(kind, id string) string {
+	if kind == "standup" {
+		return "/boards/" + url.PathEscape(id) + "/live/standup"
+	}
+	return "/projects/" + url.PathEscape(id) + "/live/refinement"
+}
+
+// Session is the one running, or an APIError 404 when there's none.
+func (c *Client) Session(ctx context.Context, kind, id string) (Session, error) {
+	path := sessionBase(kind, id)
+	if kind == "standup" {
+		path += "/session"
+	}
+	var s Session
+	err := c.call(ctx, http.MethodGet, path, nil, &s) // not reported: "none running" is the usual answer
+	return s, err
+}
+
+// Join joins the session, and keeps you in it: the server drops people it hasn't heard from in a minute.
+func (c *Client) Join(ctx context.Context, kind, id string) (Session, error) {
+	var s Session
+	err := c.do(ctx, http.MethodPost, sessionBase(kind, id)+"/join", nil, &s)
+	return s, err
+}
+
+func (c *Client) Leave(ctx context.Context, kind, id string) error {
+	return c.call(ctx, http.MethodPost, sessionBase(kind, id)+"/leave", nil, nil)
+}
+
+func (c *Client) Turn(ctx context.Context, board string) (StandupTurn, error) {
+	var t StandupTurn
+	err := c.call(ctx, http.MethodGet, "/boards/"+url.PathEscape(board)+"/live/standup", nil, &t)
+	return t, err
+}
+
 // People maps ids to names, so comments show who wrote them, and says which is you (the list's "You").
 func (c *Client) People(ctx context.Context) (names map[string]string, me string, err error) {
 	var list []person

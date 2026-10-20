@@ -12,6 +12,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// liveRunning: a standup on b1 and a refinement on p1 are running, hosted by Alex (user_2), who has
+// liveFocus open. Off unless a test turns it on.
+var (
+	liveRunning bool
+	liveFocus   any
+)
+
 // fakeAPI is TrackLin.es for Sam: project TL with a Web board (To do → In progress → Done, Fibonacci
 // estimates), TL-1 on it, TL-2 in the backlog, and a mention.
 func fakeAPI(t *testing.T) (*Client, *[]string) {
@@ -38,7 +45,22 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 		b, _ := json.Marshal(body)
 		calls = append(calls, r.Method+" "+r.URL.RequestURI()+" "+string(b))
 		var out any
+		session := map[string]any{"host": "user_2", "people": []string{"user_2", "user_1"}, "focus": map[string]any{"ticketId": liveFocus}}
 		switch p := r.URL.Path; {
+		case strings.Contains(p, "/live/"):
+			if !liveRunning {
+				http.Error(w, "no session running", http.StatusNotFound)
+				return
+			}
+			switch {
+			case strings.HasSuffix(p, "/leave"):
+				w.WriteHeader(http.StatusNoContent)
+				return
+			case p == "/api/boards/b1/live/standup":
+				out = map[string]any{"people": []map[string]any{{"id": "user_2", "label": "Alex"}, {"id": "user_1", "label": "Sam"}}, "index": 0, "runningSince": 1}
+			default: // the session, and joining it
+				out = session
+			}
 		case r.Method == http.MethodPost && p == "/api/tickets/t1/move" && body["column_id"] == "c3":
 			http.Error(w, "this api key is read-only", http.StatusForbidden)
 			return
@@ -61,7 +83,7 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 		case p == "/api/boards/b1":
 			out = board
 		case p == "/api/assignees":
-			out = []map[string]any{{"id": "user_1", "label": "You", "name": "Sam Doe"}, {"id": "Claude", "label": "Claude", "kind": "ai"}}
+			out = []map[string]any{{"id": "user_1", "label": "You", "name": "Sam Doe"}, {"id": "user_2", "label": "Alex", "name": "Alex Roe"}, {"id": "Claude", "label": "Claude", "kind": "ai"}}
 		case p == "/api/projects":
 			out = []map[string]any{{"id": "p1", "name": "TrackLines", "key_prefix": "TL", "description": "The tracker"}}
 		case p == "/api/projects/p1":
@@ -136,6 +158,16 @@ func start(t *testing.T) (*app, *[]string) {
 
 func last(calls *[]string) string { return (*calls)[len(*calls)-1] }
 
+// find is the last call starting with prefix, or "".
+func find(calls []string, prefix string) string {
+	for i := len(calls) - 1; i >= 0; i-- {
+		if strings.HasPrefix(calls[i], prefix) {
+			return calls[i]
+		}
+	}
+	return ""
+}
+
 func expect(t *testing.T, a *app, want ...string) {
 	t.Helper()
 	v := a.View()
@@ -176,7 +208,7 @@ func TestProjectsBoardsAndMovingOnTheBoard(t *testing.T) {
 	expect(t, a, "TrackLines → Web", "To do 1", "In progress 0", "TL-1 Fix login") // which project's board it is
 	// L moves the ticket to the next column, at its bottom
 	press(a, "L")
-	if c := (*calls)[len(*calls)-2]; !strings.HasPrefix(c, "POST /api/tickets/t1/move") || !strings.Contains(c, `"column_id":"c2"`) || !strings.Contains(c, `"position":0`) {
+	if c := find(*calls, "POST /api/tickets/t1/move"); !strings.HasPrefix(c, "POST /api/tickets/t1/move") || !strings.Contains(c, `"column_id":"c2"`) || !strings.Contains(c, `"position":0`) {
 		t.Fatalf("move: %v", *calls)
 	}
 	expect(t, a, "Moved TL-1 to In progress.")
@@ -494,4 +526,57 @@ func TestVimForm(t *testing.T) {
 	// an untouched form closes on one q
 	press(a, "n", "esc", "q")
 	expect(t, a, "TrackLines → Web")
+}
+
+// The TUI follows a standup or refinement hosted on the web, and only follows (TL-465): it joins,
+// moves with the host's ticket, leaves when you go, and never calls a host's endpoint.
+func TestFollowingSessions(t *testing.T) {
+	liveRunning, liveFocus = true, nil
+	t.Cleanup(func() { liveRunning, liveFocus = false, nil })
+	a, calls := start(t)
+	press(a, "2", "enter")
+	expect(t, a, "Refinement running, hosted by Alex Roe", "f to follow it")
+	press(a, "enter") // the Web board
+	expect(t, a, "Standup running, hosted by Alex Roe")
+	press(a, "f")
+	expect(t, a, "Following the standup on Web", "hosted by Alex Roe", "Here: Alex Roe, Sam Doe", "Now: Alex", "next: Sam", "The host hasn’t opened a ticket.")
+	if find(*calls, "POST /api/boards/b1/live/standup/join") == "" {
+		t.Fatalf("didn't join: %v", *calls)
+	}
+	// the host opens TL-1: the next check shows it
+	liveFocus = "t1"
+	f := a.top().(*followView)
+	pump(a, f.check(a, false), 0)
+	expect(t, a, "TL-1", "Fix login", "Login fails")
+	// leaving tells the server
+	press(a, "esc")
+	if find(*calls, "POST /api/boards/b1/live/standup/leave") == "" {
+		t.Fatalf("didn't leave: %v", *calls)
+	}
+	expect(t, a, "TrackLines → Web")
+	// it ends while you follow: back to the board, saying so
+	press(a, "f")
+	liveRunning = false
+	pump(a, a.top().(*followView).check(a, false), 0)
+	expect(t, a, "The standup has ended.", "TrackLines → Web")
+	// refinement, from the project
+	liveRunning = true
+	press(a, "esc", "f")
+	expect(t, a, "Following the refinement on TrackLines")
+	if find(*calls, "POST /api/projects/p1/live/refinement/join") == "" {
+		t.Fatalf("refinement join: %v", *calls)
+	}
+	// switching tab leaves too
+	press(a, "1")
+	if find(*calls, "POST /api/projects/p1/live/refinement/leave") == "" {
+		t.Fatalf("tab switch didn't leave: %v", *calls)
+	}
+	// never a host's action
+	for _, c := range *calls {
+		for _, host := range []string{"/focus", "/host", "/live/standup/action", "POST /api/boards/b1/live/standup ", "DELETE", "POST /api/projects/p1/live/refinement "} {
+			if strings.Contains(c, host) {
+				t.Fatalf("the TUI acted as host: %s", c)
+			}
+		}
+	}
 }
