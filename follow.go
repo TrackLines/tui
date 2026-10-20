@@ -154,3 +154,31 @@ func sessionBanner(a *app, kind string, s *Session) string {
 	}
 	return ok.Render(fmt.Sprintf("● %s running, hosted by %s", strings.ToUpper(kind[:1])+kind[1:], a.name(s.Host))) + muted.Render(" · f to follow it") + "\n"
 }
+
+// liveSession is a standup or refinement running somewhere in the organization, for My work.
+type liveSession struct {
+	kind, id, name, where string // where: the project, for a board's standup
+	host                  string
+}
+
+// runningSessions is every standup and refinement running in the organization, in one request (TL-466).
+func runningSessions(ctx context.Context, api *Client) ([]liveSession, error) {
+	var list []struct {
+		Kind        string `json:"kind"`
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		ProjectName string `json:"project_name"`
+		Host        string `json:"host"`
+	}
+	if err := api.do(ctx, http.MethodGet, "/live/sessions", nil, &list); err != nil {
+		return nil, err
+	}
+	out := make([]liveSession, len(list))
+	for i, x := range list {
+		out[i] = liveSession{kind: x.Kind, id: x.ID, name: x.Name, host: x.Host}
+		if x.Kind == "standup" {
+			out[i].where = x.ProjectName
+		}
+	}
+	return out, nil
+}
