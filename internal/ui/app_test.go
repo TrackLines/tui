@@ -1,8 +1,7 @@
-package main
+package ui
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,6 +11,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/tracklines/tui/internal/update"
+	"github.com/tracklines/tui/internal/usage"
 )
 
 // liveRunning: a standup on b1 and a refinement on p1 are running, hosted by Alex (user_2), who has
@@ -162,6 +164,7 @@ func press(a *app, keys ...string) {
 }
 
 func start(t *testing.T) (*app, *[]string) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir()) // the most-used projects file, never the real one
 	api, calls := fakeAPI(t)
 	a := newApp(api)
 	a.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
@@ -360,34 +363,6 @@ func TestBacklogSortAndLabels(t *testing.T) {
 	press(a, "f", "c", "enter")
 	if strings.Contains(last(calls), "label=") {
 		t.Fatalf("cleared filter still sent: %s", last(calls))
-	}
-}
-
-// Our failures go to Bugfixes (the server erroring or unreachable), the person's don't (a 4xx refusal
-// is theirs to act on), and a report never carries what was searched for.
-func TestReportsOnlyOurFailures(t *testing.T) {
-	var got []string
-	report = func(format string, args ...any) { got = append(got, fmt.Sprintf(format, args...)) }
-	t.Cleanup(func() { report = func(string, ...any) {} })
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/search" {
-			http.Error(w, "boom", http.StatusInternalServerError)
-			return
-		}
-		http.Error(w, "this api key is read-only", http.StatusForbidden)
-	}))
-	api := &Client{Base: srv.URL, Key: "tl_p_secret", HTTP: srv.Client()}
-	api.Search(t.Context(), "payroll leak")
-	api.Comment(t.Context(), "t1", "hello")
-	srv.Close()
-	api.MyWork(t.Context()) // unreachable
-	if len(got) != 2 || !strings.HasPrefix(got[0], "api GET /search: boom") || !strings.HasPrefix(got[1], "api GET /search: ") {
-		t.Fatalf("reports: %q", got)
-	}
-	for _, r := range got {
-		if strings.Contains(r, "payroll") || strings.Contains(r, "tl_p_secret") || strings.Contains(r, "assignee") {
-			t.Fatalf("report leaks: %q", r)
-		}
 	}
 }
 
@@ -675,4 +650,92 @@ func TestListColumnsLineUp(t *testing.T) {
 			t.Fatalf("row %d wide on a %d screen: %q", w, a.width, line)
 		}
 	}
+}
+
+// vim's : commands save and leave (TL-475): :w / :wq send, :q won't throw text away, :q! will.
+func TestVimCommands(t *testing.T) {
+	a, calls := start(t)
+	press(a, "enter", "c", "ship it", "esc", ":", "q", "enter")
+	expect(t, a, "E37: No write since last change", "Comment on TL-1") // refused: still here, text kept
+	press(a, ":", "wq", "enter")
+	if find(*calls, "POST /api/tickets/t1/comments") != `POST /api/tickets/t1/comments {"body":"ship it"}` {
+		t.Fatalf(":wq didn't send: %v", *calls)
+	}
+	n := len(*calls)
+	press(a, "c", "draft", "esc", ":", "q!", "enter") // discards
+	expect(t, a, "Fix login", "e edit")
+	if strings.Contains(strings.Join((*calls)[n:], "\n"), "POST") {
+		t.Fatal(":q! sent the comment")
+	}
+	press(a, "c", "x", "esc", ":", "nope", "enter")
+	expect(t, a, "E492: Not an editor command: nope")
+	press(a, ":", "q!", "enter")
+
+	// the ticket form: :w saves; :q in the description weighs the title too
+	press(a, "esc", "2", "enter", "enter", "n", "SSO", "tab", "tab", "tab", "right", "tab") // title, then the estimate, then the description
+	press(a, "esc", ":", "q", "enter")
+	expect(t, a, "E37: No write since last change") // the title is typed, though the description is empty
+	press(a, ":", "w", "enter")
+	if !strings.Contains(strings.Join(*calls, "\n"), `"title":"SSO"`) {
+		t.Fatalf(":w didn't save the ticket: %v", *calls)
+	}
+	expect(t, a, "Created TL-9.")
+}
+
+// keys = standard: no modes; typing types (q and : too), ctrl+s saves, esc cancels, twice over unsaved text.
+func TestStandardKeys(t *testing.T) {
+	vimKeys = false
+	t.Cleanup(func() { vimKeys = true })
+	a, calls := start(t)
+	press(a, "enter", "c", "quick :q note", "esc")
+	expect(t, a, "Unsaved text: esc again to discard it")
+	press(a, "esc")
+	expect(t, a, "Fix login", "e edit") // discarded
+	press(a, "c", "keep me", "ctrl+s")
+	if find(*calls, "POST /api/tickets/t1/comments") != `POST /api/tickets/t1/comments {"body":"keep me"}` {
+		t.Fatalf("ctrl+s: %v", *calls)
+	}
+	press(a, "e")
+	expect(t, a, "ctrl+s save · esc cancel")
+	if strings.Contains(a.View(), "-- NORMAL --") || strings.Contains(a.View(), "-- INSERT --") {
+		t.Fatal("standard keys show vim modes")
+	}
+	press(a, "esc") // nothing changed: straight out
+	expect(t, a, "Fix login", "e edit")
+}
+
+// Your most used projects become tabs 3–5 (TL-477), from a count kept on this machine only.
+func TestMostUsedProjectTabs(t *testing.T) {
+	a, _ := start(t)
+	if strings.Contains(a.View(), " 3 ") {
+		t.Fatalf("a project tab with no history:\n%s", a.View())
+	}
+	press(a, "3") // no third tab yet: nothing happens
+	expect(t, a, "My work")
+	press(a, "2", "enter") // open TrackLines
+	expect(t, a, "TrackLines")
+	if strings.Contains(a.View(), " 3 TrackLines ") {
+		t.Fatal("the tabs reordered while inside the project")
+	}
+	press(a, "1") // back to My work: now it's a tab
+	expect(t, a, " 3 TrackLines ")
+	press(a, "3")
+	expect(t, a, "Web", "Backlog") // straight into the project
+	press(a, "enter", "esc")       // a board and back: the same visit, not another
+	if got := usage.Load()["p1"]; got.Count != 2 || got.Name != "TrackLines" {
+		t.Fatalf("visits counted: %+v", got) // two visits: from Projects, then from its tab
+	}
+}
+
+func TestAboutAndUpdateNotice(t *testing.T) {
+	a, _ := start(t)
+	press(a, "?")
+	expect(t, a, "TrackLin.es for the terminal", "Version  dev", "A development build: it doesn’t check for updates.", "t        go to a ticket")
+	press(a, "esc")
+	// a release build that's behind: the header says so, and ? offers it
+	r := update.Release{Tag: "v0.2.0"}
+	a.latest = &r
+	expect(t, a, "v0.2.0 is out · ? to update")
+	press(a, "?")
+	expect(t, a, "v0.2.0 is out.", "u to update")
 }

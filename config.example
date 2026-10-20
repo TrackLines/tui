@@ -1,0 +1,10 @@
+# TrackLin.es TUI config: copy to ~/.config/tracklines/config and change what you like.
+#   mkdir -p ~/.config/tracklines && cp config.example ~/.config/tracklines/config
+# One "name = value" per line; # starts a comment. Anything left out keeps its default.
+
+# How writing a ticket or comment works:
+#   vim       modes: typing is insert mode, esc is normal mode; :w / :wq save, :q leaves
+#             (refused over unsaved text), :q! discards
+#   standard  no modes: ctrl+s saves, esc cancels (twice over unsaved text)
+# ctrl+s saves with either.
+keys = vim

@@ -36,7 +36,7 @@ jobs:
           CGO_ENABLED: "0" # a static binary, for any distro
         run: |
           version=$(git describe --tags --always --dirty)
-          go build -trimpath -ldflags "-s -w -X main.version=${version}" -o tracklines-linux-${{ matrix.arch }} .
+          go build -trimpath -ldflags "-s -w -X main.version=${version}" -o tracklines-linux-${{ matrix.arch }} ./cmd/tracklines
       - uses: actions/upload-artifact@v7
         with:
           name: tracklines-linux-${{ matrix.arch }}

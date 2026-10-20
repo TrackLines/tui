@@ -1,4 +1,5 @@
-package main
+// Package api is the TrackLin.es API client the TUI uses, signed in with a personal key (tl_p_…).
+package api
 
 import (
 	"bytes"
@@ -16,6 +17,9 @@ type Client struct {
 	Base string // https://api.tracklin.es
 	Key  string
 	HTTP *http.Client
+	// OnFailure hears our failures (the server erroring or unreachable), to report them: the route
+	// without its query (what someone searched for), and the cause without the URL. nil: nobody.
+	OnFailure func(method, route string, err error)
 }
 
 type Ticket struct {
@@ -79,8 +83,8 @@ type Board struct {
 	Columns       []Column `json:"columns"`
 }
 
-// scales mirrors the backend's boards.Scales: the estimates each scale takes.
-var scales = map[string][]string{
+// Scales mirrors the backend's boards.Scales: the estimates each scale takes.
+var Scales = map[string][]string{
 	"fibonacci": {"1", "2", "3", "5", "8", "13", "21"},
 	"tshirt":    {"XS", "S", "M", "L", "XL"},
 	"powers":    {"1", "2", "4", "8", "16"},
@@ -121,7 +125,9 @@ func (c *Client) do(ctx context.Context, method, path string, in, out any) error
 		if u, isURL := err.(*url.Error); isURL {
 			cause = u.Err // its message repeats the whole URL, query and all
 		}
-		report("api %s %s: %v", method, route, cause)
+		if c.OnFailure != nil {
+			c.OnFailure(method, route, cause)
+		}
 	}
 	return err
 }
@@ -352,4 +358,29 @@ func (c *Client) People(ctx context.Context) (names map[string]string, me string
 		}
 	}
 	return names, me, nil
+}
+
+// reportable is whether an API failure is ours to fix: the server failing or unreachable. Refusals
+// (4xx: a read-only key, a locked sprint) are the person's to act on, and they're shown on screen.
+func reportable(err error) bool {
+	if e, isAPI := err.(*APIError); isAPI {
+		return e.Status >= 500
+	}
+	return err != nil
+}
+
+// RunningSession is a standup or refinement being hosted somewhere in the organization.
+type RunningSession struct {
+	Kind        string `json:"kind"` // standup (on a board) | refinement (on a project)
+	ID          string `json:"id"`   // the board's or project's
+	Name        string `json:"name"`
+	ProjectName string `json:"project_name"`
+	Host        string `json:"host"`
+}
+
+// RunningSessions is every standup and refinement running in the organization, in one request (TL-466).
+func (c *Client) RunningSessions(ctx context.Context) ([]RunningSession, error) {
+	var out []RunningSession
+	err := c.do(ctx, http.MethodGet, "/live/sessions", nil, &out)
+	return out, err
 }

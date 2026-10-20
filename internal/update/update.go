@@ -1,4 +1,5 @@
-package main
+// Package update checks GitHub for a newer release of the TUI and installs it over the running binary.
+package update
 
 import (
 	"bufio"
@@ -15,8 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // Updates come from the GitHub releases CI makes for each v* tag: static Linux binaries for amd64 and
@@ -26,7 +25,7 @@ var (
 	executable = os.Executable // the binary to replace (a test's own file in tests)
 )
 
-type release struct {
+type Release struct {
 	Tag    string `json:"tag_name"`
 	Assets []struct {
 		URL string `json:"browser_download_url"`
@@ -34,7 +33,7 @@ type release struct {
 }
 
 // asset is the download URL of one of the release's files, or "".
-func (r release) asset(name string) string {
+func (r Release) asset(name string) string {
 	for _, a := range r.Assets {
 		if strings.HasSuffix(a.URL, "/"+name) {
 			return a.URL
@@ -46,29 +45,29 @@ func (r release) asset(name string) string {
 // binaryName is this machine's file in a release, e.g. tracklines-linux-arm64.
 func binaryName() string { return "tracklines-" + runtime.GOOS + "-" + runtime.GOARCH }
 
-// checksUpdates: a release build (vX.Y.Z…) that hasn't been told not to.
-func checksUpdates() bool {
+// Checks: a release build (vX.Y.Z…) that hasn't been told not to.
+func Checks(version string) bool {
 	_, isRelease := semver(version)
 	return isRelease && os.Getenv("TRACKLINES_NO_UPDATE_CHECK") == ""
 }
 
-func latestRelease(ctx context.Context, client *http.Client) (release, error) {
+func Latest(ctx context.Context, client *http.Client) (Release, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, latestURL, nil)
 	if err != nil {
-		return release{}, err
+		return Release{}, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	res, err := client.Do(req)
 	if err != nil {
-		return release{}, err
+		return Release{}, err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return release{}, fmt.Errorf("checking for updates: GitHub said %s", res.Status)
+		return Release{}, fmt.Errorf("checking for updates: GitHub said %s", res.Status)
 	}
-	var r release
+	var r Release
 	return r, json.NewDecoder(res.Body).Decode(&r)
 }
 
@@ -90,8 +89,8 @@ func semver(v string) ([3]int, bool) {
 	return out, true
 }
 
-// newer: is latest a later release than current?
-func newer(latest, current string) bool {
+// Newer: is latest a later release than current?
+func Newer(latest, current string) bool {
 	l, okL := semver(latest)
 	c, okC := semver(current)
 	if !okL || !okC {
@@ -105,9 +104,9 @@ func newer(latest, current string) bool {
 	return false
 }
 
-// selfUpdate replaces the running binary with r's, after checking it against the release's SHA256SUMS.
+// SelfUpdate replaces the running binary with r's, after checking it against the release's SHA256SUMS.
 // The new file goes next to the old one and is renamed over it, so a failed download changes nothing.
-func selfUpdate(ctx context.Context, client *http.Client, r release) error {
+func SelfUpdate(ctx context.Context, client *http.Client, r Release) error {
 	name := binaryName()
 	bin, sums := r.asset(name), r.asset("SHA256SUMS")
 	if bin == "" || sums == "" {
@@ -179,75 +178,3 @@ func download(ctx context.Context, client *http.Client, url string, w io.Writer)
 	_, err = io.Copy(w, res.Body)
 	return err
 }
-
-// aboutView is ? : the version you're running, whether there's a newer one (u installs it), and the
-// keys that work everywhere.
-type aboutView struct{ updating bool }
-
-type updatedMsg struct {
-	tag string
-	err error
-}
-
-func (v *aboutView) load(a *app) tea.Cmd {
-	a.loading = false
-	return nil
-}
-
-func (v *aboutView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
-	switch msg := msg.(type) {
-	case updatedMsg:
-		v.updating = false
-		if msg.err != nil {
-			a.status = warn.Render(msg.err.Error())
-			return v, nil
-		}
-		a.updated, a.latest = msg.tag, nil
-		a.status = ok.Render("Updated to " + msg.tag + ". Quit and start tracklines again to use it.")
-	case tea.KeyMsg:
-		if msg.String() != "u" || a.latest == nil || v.updating {
-			return v, nil
-		}
-		v.updating, a.status = true, muted.Render("Downloading "+a.latest.Tag+"…")
-		r := *a.latest
-		return v, func() tea.Msg { return updatedMsg{r.Tag, selfUpdate(context.Background(), http.DefaultClient, r)} }
-	}
-	return v, nil
-}
-
-func (v *aboutView) render(a *app) string {
-	var b strings.Builder
-	b.WriteString(accent.Render("TrackLin.es for the terminal") + "\n\n")
-	b.WriteString("Version  " + bold.Render(version) + muted.Render("  ("+runtime.GOOS+"/"+runtime.GOARCH+")") + "\n")
-	switch {
-	case a.updated != "":
-		b.WriteString(ok.Render("Updated to "+a.updated+": restart to use it.") + "\n")
-	case a.latest != nil:
-		b.WriteString(ok.Render(a.latest.Tag+" is out.") + "  " + bold.Render("u") + " to update\n")
-	case !checksUpdates():
-		b.WriteString(muted.Render("A development build: it doesn’t check for updates.") + "\n")
-	default:
-		b.WriteString(muted.Render("Up to date.") + "\n")
-	}
-	b.WriteString("\n" + bold.Render("Everywhere") + "\n")
-	for _, k := range [][2]string{
-		{"1 / 2", "My work (and Mentions) / Projects"},
-		{"/", "search everything"},
-		{"t", "go to a ticket by its key (TL-308)"},
-		{"esc / q", "back (q quits on My work and Projects)"},
-		{"Q", "quit from anywhere"},
-		{"?", "this screen"},
-	} {
-		b.WriteString(fmt.Sprintf("  %-8s %s\n", k[0], k[1]))
-	}
-	b.WriteString("\n" + muted.Render("Each screen lists its own keys at the bottom. More: github.com/TrackLines/tui") + "\n")
-	return b.String()
-}
-
-func (v *aboutView) help() string {
-	if v.updating {
-		return "updating…"
-	}
-	return "u update (when there's one) · esc/q back"
-}
-func (v *aboutView) typing() bool { return false }

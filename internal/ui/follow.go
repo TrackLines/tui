@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"context"
@@ -163,14 +163,8 @@ type liveSession struct {
 
 // runningSessions is every standup and refinement running in the organization, in one request (TL-466).
 func runningSessions(ctx context.Context, api *Client) ([]liveSession, error) {
-	var list []struct {
-		Kind        string `json:"kind"`
-		ID          string `json:"id"`
-		Name        string `json:"name"`
-		ProjectName string `json:"project_name"`
-		Host        string `json:"host"`
-	}
-	if err := api.do(ctx, http.MethodGet, "/live/sessions", nil, &list); err != nil {
+	list, err := api.RunningSessions(ctx)
+	if err != nil {
 		return nil, err
 	}
 	out := make([]liveSession, len(list))

@@ -23,7 +23,7 @@ It's for the everyday work. You can follow a standup or refinement someone's run
    chmod +x ~/.local/bin/tracklines
    ```
 
-   On Windows or macOS, or to build it yourself (Go 1.26+): `make install`.
+   On Windows or macOS, or to build it yourself (Go 1.26+): `make install`, or `go install github.com/tracklines/tui/cmd/tracklines@latest`.
 
    **Updates:** a release build checks GitHub for a newer release when it starts. If there is one, the header says so, and `?` then `u` installs it: it downloads the binary, checks it against `SHA256SUMS`, and replaces the one you're running. Restart to use it. `TRACKLINES_NO_UPDATE_CHECK=1` turns the check off. A build of your own (`make install`) doesn't check.
 
@@ -37,7 +37,7 @@ It's for the everyday work. You can follow a standup or refinement someone's run
 
 ## Keys
 
-Everywhere: `1` My work (with Mentions) · `2` Projects · `/` search everything · `t` go to a ticket by its key (`TL-308` or `tl-308`) · `esc` or `q` back (on My work and Projects, `q` quits) · `Q` quit from anywhere · `?` your version, updates and these keys.
+Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most used projects · `/` search everything · `t` go to a ticket by its key (`TL-308` or `tl-308`) · `esc` or `q` back (on My work and Projects, `q` quits) · `Q` quit from anywhere · `?` your version, updates and these keys.
 
 | Screen | Keys |
 |---|---|
@@ -51,13 +51,29 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `/` search everything
 | New / edit ticket | Typing is insert mode; `esc` leaves it. Then `tab` or `j`/`k` field · `i`/`enter` edit · `h`/`l` change type, priority, estimate · `q` cancel · `ctrl+s` save (any time) |
 | Board / project | `f` follows its standup / refinement, when one's running (the banner says so) |
 | Following | it moves with the host: who's here, whose turn, the ticket they have open · `esc`/`q` leave |
-| Comment | Like vim: `esc` normal mode · `i a I A o O` insert · `h j k l w b 0 $ g G` move · `x`, `dd` delete · `enter` or `ctrl+s` send · `q` cancel (twice if there's text) |
+| Comment | Like vim: `esc` normal mode · `i a I A o O` insert · `h j k l w b 0 $ g G` move · `x`, `dd` delete · `:w`, `:wq`, `enter` or `ctrl+s` send · `:q`, `q` cancel (refused/twice over text) · `:q!` discard. With `keys = standard`: `ctrl+s` send, `esc` cancel |
 
 - **My work** is your open tickets on every board and project, the same list as the web app.
+- **Tabs 3–5** are the projects you open most, so you can jump straight in. The TUI keeps the count on your machine only, in `~/.local/state/tracklines/projects.json`, and the tabs reorder when you go back to My work or Projects, never while you're on one.
 - **Mentions**, under My work, are tickets that @mention you, leaving out finished ones.
 - A search takes words or a ticket key such as `TL-123`.
 - Boards that use estimates ask for one when you create a ticket there.
 - Backlog tickets are put on a board in the web app, where the sprint capacity checks are.
+
+## Config
+
+`~/.config/tracklines/config`, one `name = value` per line (`#` starts a comment). The repo's [`config.example`](config.example) has every setting at its default, explained:
+
+```sh
+mkdir -p ~/.config/tracklines && cp config.example ~/.config/tracklines/config
+```
+
+
+| Name | Values |
+|---|---|
+| `keys` | `vim` (the default): writing a ticket or comment works like vim. Typing is insert mode, `esc` is normal mode, and `:w` / `:wq` save, `:q` leaves (refused over unsaved text), `:q!` discards. `standard`: no modes; `ctrl+s` saves and `esc` cancels (twice over unsaved text). `ctrl+s` saves with either. |
+
+`?` shows which is in use.
 
 ## Settings
 
@@ -71,5 +87,15 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `/` search everything
 ```sh
 go test ./...
 ```
+
+| Where | What |
+|---|---|
+| `cmd/tracklines` | `main`: reads the key and config, wires the parts together and runs the app |
+| `internal/api` | the TrackLin.es API client and its types |
+| `internal/config` | the API key, the config file, and the config and state folders |
+| `internal/reporting` | sending the TUI's own failures to Bugfixes |
+| `internal/update` | checking for and installing a newer release |
+| `internal/usage` | which projects you open most (tabs 3–5) |
+| `internal/ui` | the screens: lists, boards, tickets, the forms and vim editing, following sessions, `?` |
 
 CI (`.github/workflows/ci.yml`) runs vet and the tests on every push and pull request. A `v*` tag, from making a release on GitHub or `git tag v0.1.0 && git push --tags`, also builds static Linux binaries for amd64 and arm64 and attaches them to the release.

@@ -1,4 +1,4 @@
-package main
+package update
 
 import (
 	"crypto/sha256"
@@ -26,14 +26,14 @@ func TestVersions(t *testing.T) {
 		{"v0.1.0", "dev", false},                   // development builds don't update
 		{"nightly", "v0.1.0", false},
 	} {
-		if got := newer(c.latest, c.current); got != c.newer {
-			t.Errorf("newer(%q, %q) = %v", c.latest, c.current, got)
+		if got := Newer(c.latest, c.current); got != c.newer {
+			t.Errorf("Newer(%q, %q) = %v", c.latest, c.current, got)
 		}
 	}
 }
 
-// releaseServer is a GitHub release of tag with this machine's binary (body) and SHA256SUMS (sum).
-func releaseServer(t *testing.T, tag, body, sum string) release {
+// releaseServer is a GitHub Release of tag with this machine's binary (body) and SHA256SUMS (sum).
+func releaseServer(t *testing.T, tag, body, sum string) Release {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/SHA256SUMS"):
@@ -45,7 +45,7 @@ func releaseServer(t *testing.T, tag, body, sum string) release {
 		}
 	}))
 	t.Cleanup(srv.Close)
-	r := release{Tag: tag}
+	r := Release{Tag: tag}
 	for _, name := range []string{binaryName(), "SHA256SUMS"} {
 		r.Assets = append(r.Assets, struct {
 			URL string `json:"browser_download_url"`
@@ -64,14 +64,14 @@ func TestSelfUpdate(t *testing.T) {
 	h := sha256.Sum256([]byte("new binary"))
 	good := hex.EncodeToString(h[:])
 	// a download that doesn't match its checksum changes nothing
-	if err := selfUpdate(t.Context(), http.DefaultClient, releaseServer(t, "v0.2.0", "tampered", good)); err == nil || !strings.Contains(err.Error(), "checksum") {
+	if err := SelfUpdate(t.Context(), http.DefaultClient, releaseServer(t, "v0.2.0", "tampered", good)); err == nil || !strings.Contains(err.Error(), "checksum") {
 		t.Fatalf("bad checksum: %v", err)
 	}
 	if b, _ := os.ReadFile(exe); string(b) != "old" {
 		t.Fatalf("binary changed by a bad download: %q", b)
 	}
 	// a good one replaces it, executable, with no temp file left behind
-	if err := selfUpdate(t.Context(), http.DefaultClient, releaseServer(t, "v0.2.0", "new binary", good)); err != nil {
+	if err := SelfUpdate(t.Context(), http.DefaultClient, releaseServer(t, "v0.2.0", "new binary", good)); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(exe); string(b) != "new binary" {
@@ -84,20 +84,7 @@ func TestSelfUpdate(t *testing.T) {
 		t.Fatalf("temp files left: %v", left)
 	}
 	// a platform with no download (macOS, Windows) is told to build it
-	if err := selfUpdate(t.Context(), http.DefaultClient, release{Tag: "v0.2.0"}); err == nil || !strings.Contains(err.Error(), "make install") {
+	if err := SelfUpdate(t.Context(), http.DefaultClient, Release{Tag: "v0.2.0"}); err == nil || !strings.Contains(err.Error(), "make install") {
 		t.Fatalf("no download: %v", err)
 	}
-}
-
-func TestAboutAndUpdateNotice(t *testing.T) {
-	a, _ := start(t)
-	press(a, "?")
-	expect(t, a, "TrackLin.es for the terminal", "Version  dev", "A development build: it doesn’t check for updates.", "t        go to a ticket")
-	press(a, "esc")
-	// a release build that's behind: the header says so, and ? offers it
-	r := release{Tag: "v0.2.0"}
-	a.latest = &r
-	expect(t, a, "v0.2.0 is out · ? to update")
-	press(a, "?")
-	expect(t, a, "v0.2.0 is out.", "u to update")
 }

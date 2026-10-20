@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"context"
@@ -9,6 +9,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/tracklines/tui/internal/update"
+	"github.com/tracklines/tui/internal/usage"
 )
 
 // Colors are the terminal's own ANSI ones, so the TUI wears whatever Omarchy theme is active.
@@ -42,8 +45,10 @@ type app struct {
 	loading       bool
 	people        map[string]string
 	me            string
-	latest        *release // a newer release than this one, when there is
-	updated       string   // the release just installed: restart to use it
+	latest        *update.Release // a newer release than this one, when there is
+	updated       string          // the release just installed: restart to use it
+	usage         usage.Projects
+	favourites    []usage.Favourite // tabs 3–5: the projects you open most (TL-477)
 }
 
 type (
@@ -66,13 +71,29 @@ type (
 	}
 )
 
-var tabs = []string{"My work", "Projects"}
+func newApp(api *Client) *app {
+	a := &app{api: api, usage: usage.Load()}
+	a.favourites = a.usage.Top(3)
+	a.stack = []view{a.tabView(0)}
+	return a
+}
 
-func newApp(api *Client) *app { return &app{api: api, stack: []view{tabView(0)}} }
+// tabs are My work, Projects, and then your most used projects (TL-477).
+func (a *app) tabs() []string {
+	out := []string{"My work", "Projects"}
+	for _, f := range a.favourites {
+		out = append(out, cut(f.Name, 18))
+	}
+	return out
+}
 
-func tabView(i int) view {
-	if i == 1 {
+func (a *app) tabView(i int) view {
+	switch {
+	case i == 1:
 		return &projectsView{}
+	case i >= 2:
+		f := a.favourites[i-2]
+		return &projectView{id: f.ID}
 	}
 	return newHome()
 }
@@ -93,7 +114,7 @@ func (a *app) leaving(n int) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-type latestMsg release
+type latestMsg update.Release
 
 func (a *app) Init() tea.Cmd {
 	a.loading = true
@@ -105,12 +126,12 @@ func (a *app) Init() tea.Cmd {
 
 // checkUpdate looks for a newer release, quietly: no network, no answer, nothing shown.
 func (a *app) checkUpdate() tea.Cmd {
-	if !checksUpdates() {
+	if !update.Checks(version) {
 		return nil
 	}
 	return func() tea.Msg {
-		r, err := latestRelease(context.Background(), http.DefaultClient)
-		if err != nil || !newer(r.Tag, version) {
+		r, err := update.Latest(context.Background(), http.DefaultClient)
+		if err != nil || !update.Newer(r.Tag, version) {
 			return nil
 		}
 		return latestMsg(r)
@@ -140,7 +161,7 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.people, a.me = msg.people, msg.me
 		return a, nil
 	case latestMsg:
-		r := release(msg)
+		r := update.Release(msg)
 		a.latest = &r
 		return a, nil
 	case pushMsg:
@@ -188,10 +209,17 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, tea.Quit
 			case "Q": // quit from anywhere
 				return a, a.quit()
-			case "1", "2":
+			case "1", "2", "3", "4", "5":
+				i := int(k[0] - '1')
+				if i >= len(a.tabs()) {
+					break
+				}
 				bye := a.leaving(len(a.stack))
-				a.tab = int(k[0] - '1')
-				a.stack = []view{tabView(a.tab)}
+				a.tab = i
+				if i < 2 { // the project tabs reorder here, never while you're on one of them
+					a.favourites = a.usage.Top(3)
+				}
+				a.stack = []view{a.tabView(a.tab)}
 				a.status, a.loading = "", true
 				return a, tea.Batch(bye, a.top().load(a))
 			case "/":
@@ -216,7 +244,7 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (a *app) View() string {
 	var head []string
-	for i, t := range tabs {
+	for i, t := range a.tabs() {
 		label := fmt.Sprintf(" %d %s ", i+1, t)
 		if i == a.tab {
 			label = picked.Render(label)

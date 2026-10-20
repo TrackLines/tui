@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"context"
@@ -13,6 +13,8 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/tracklines/tui/internal/api"
 )
 
 // listView is a list of tickets: My work, Mentions, a search, or a project's backlog (which can take
@@ -151,7 +153,7 @@ func (v *listView) render(a *app) string {
 }
 
 func (v *listView) help() string {
-	h := "j/k move · enter open · / search · t go to · 1 2 tabs · r reload · ? help · q quit"
+	h := "j/k move · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit"
 	if v.project != "" {
 		h = "j/k move · enter open · n new ticket · s sort · f labels · esc/q back · Q quit"
 	}
@@ -278,7 +280,7 @@ func (v *homeView) help() string {
 	if len(v.live) > 0 {
 		h = "tab running now/my work/mentions"
 	}
-	return h + " · j/k move · enter open · / search · t go to · 1 2 tabs · r reload · ? help · q quit"
+	return h + " · j/k move · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit"
 }
 func (v *homeView) typing() bool { return false }
 
@@ -393,6 +395,11 @@ func (v *projectsView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		if p, isProjects := msg.data.([]Project); isProjects && msg.tag == "projects" {
 			v.items = p
 			v.cursor = min(v.cursor, max(len(p)-1, 0))
+			ids := map[string]bool{}
+			for _, x := range p {
+				ids[x.ID] = true
+			}
+			a.usage.Prune(ids) // gone, or another organization's: no longer a favourite
 		}
 	case tea.KeyMsg:
 		if cursorKeys(msg.String(), &v.cursor, len(v.items)) {
@@ -417,7 +424,7 @@ func (v *projectsView) render(a *app) string {
 }
 
 func (v *projectsView) help() string {
-	return "j/k move · enter open · / search · t go to · 1 2 tabs · ? help · q quit"
+	return "j/k move · enter open · / search · t go to · 1–5 tabs · ? help · q quit"
 }
 func (v *projectsView) typing() bool { return false }
 
@@ -426,6 +433,7 @@ type projectView struct {
 	id         string
 	project    *Project
 	cursor     int
+	counted    bool     // this visit's been counted toward your most used (TL-477)
 	refinement *Session // a refinement running on it
 }
 
@@ -438,6 +446,10 @@ func (v *projectView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	case loadedMsg:
 		if p, isProject := msg.data.(Project); isProject && msg.tag == "project:"+v.id {
 			v.project = &p
+			if !v.counted { // once per visit: coming back from a board isn't another
+				v.counted = true
+				a.usage.Opened(p.ID, p.Name, time.Now())
+			}
 		}
 		if s, isSession := msg.data.(*Session); isSession && msg.tag == "running:refinement:"+v.id {
 			v.refinement = s
@@ -866,7 +878,7 @@ func (v *commentView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 func (v *commentView) render(a *app) string {
 	return accent.Render("Comment on "+v.ticket.Key) + "  " + v.ticket.Title + "\n\n" + v.input.View() + "\n" + v.input.mode() + "\n"
 }
-func (v *commentView) help() string { return vimHelp }
+func (v *commentView) help() string { return editHelp() }
 func (v *commentView) typing() bool { return true }
 
 var (
@@ -886,8 +898,9 @@ type formView struct {
 	description            vimArea
 	kind, prio, estimate   int // indexes into types, priorities and the scale (-1: not estimated)
 	field                  int
-	typingTitle            bool   // insert mode in the title
-	pendingQ               bool   // q pressed once with something typed: q again discards it
+	typingTitle            bool // insert mode in the title
+	pendingQ               bool // q (esc with standard keys) pressed once with something typed: again discards it
+	cmd                    cmdLine
 	before                 string // the title and description as they started, to tell if anything changed
 }
 
@@ -911,10 +924,11 @@ func newForm(t *Ticket, project, column, scale string) *formView {
 		f.description.SetValue(t.Description)
 		f.kind, f.prio = max(0, indexOf(types, t.Type)), max(0, indexOf(priorities, t.Priority))
 		if t.Estimate != nil {
-			f.estimate = indexOf(scales[scale], *t.Estimate)
+			f.estimate = indexOf(api.Scales[scale], *t.Estimate)
 		}
 	}
 	f.before = f.title.Value() + "\x00" + f.description.Value()
+	f.description.unsaved = f.changed // :q in the description weighs the whole form, title too
 	f.title.Focus()
 	return f
 }
@@ -936,7 +950,7 @@ func (f *formView) load(a *app) tea.Cmd {
 }
 
 func (f *formView) fields() []int {
-	if scales[f.scale] == nil {
+	if api.Scales[f.scale] == nil {
 		return []int{fieldTitle, fieldType, fieldPriority, fieldDescription}
 	}
 	return []int{fieldTitle, fieldType, fieldPriority, fieldEstimate, fieldDescription}
@@ -967,7 +981,7 @@ func (f *formView) input() (TicketInput, string) {
 	if in.Title == "" {
 		return in, "A title, please."
 	}
-	if values := scales[f.scale]; values != nil {
+	if values := api.Scales[f.scale]; values != nil {
 		if f.estimate < 0 {
 			if f.editing == nil {
 				return in, "This board needs an estimate."
@@ -1027,6 +1041,18 @@ func (f *formView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		f.focus(-1, true)
 		return f, nil
 	}
+	if !vimKeys {
+		return f.standardKey(k)
+	}
+	if f.cmd.on && f.field != fieldDescription { // the : prompt (the description has its own)
+		switch f.cmd.key(k, f.changed()) {
+		case vimSend:
+			return f, f.save(a)
+		case vimCancel:
+			return f, msgOf(popMsg{})
+		}
+		return f, nil
+	}
 	switch {
 	case f.field == fieldDescription: // its own vim modes
 		switch action, cmd := f.description.update(k); action {
@@ -1048,8 +1074,10 @@ func (f *formView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	}
 	// normal mode, on the title or a choice
 	key, pending := k.String(), f.pendingQ
-	f.pendingQ = false
+	f.pendingQ, f.cmd.msg = false, ""
 	switch key {
+	case ":":
+		f.cmd.open()
 	case "q":
 		if pending || !f.changed() {
 			return f, msgOf(popMsg{})
@@ -1070,29 +1098,65 @@ func (f *formView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			}
 		}
 	case "left", "right", "h", "l", " ":
-		d := 1
-		if key == "left" || key == "h" {
-			d = -1
-		}
-		switch f.field {
-		case fieldType:
-			f.kind = (f.kind + d + len(types)) % len(types)
-		case fieldPriority:
-			f.prio = (f.prio + d + len(priorities)) % len(priorities)
-		case fieldEstimate:
-			n := len(scales[f.scale]) + 1 // and "not estimated" (-1)
-			f.estimate = (f.estimate+1+d+n)%n - 1
-		}
+		f.choose(key)
 	}
 	return f, nil
 }
 
+// choose cycles the focused choice (type, priority, estimate) back or forward.
+func (f *formView) choose(key string) {
+	d := 1
+	if key == "left" || key == "h" {
+		d = -1
+	}
+	switch f.field {
+	case fieldType:
+		f.kind = (f.kind + d + len(types)) % len(types)
+	case fieldPriority:
+		f.prio = (f.prio + d + len(priorities)) % len(priorities)
+	case fieldEstimate:
+		n := len(api.Scales[f.scale]) + 1 // and "not estimated" (-1)
+		f.estimate = (f.estimate+1+d+n)%n - 1
+	}
+}
+
+// standardKey is the form with standard keys (keys = standard): no modes, typing goes into the
+// focused field, ←/→ change a choice, esc cancels (twice once something's typed).
+func (f *formView) standardKey(k tea.KeyMsg) (view, tea.Cmd) {
+	if k.String() == "esc" {
+		if f.pendingQ || !f.changed() {
+			return f, msgOf(popMsg{})
+		}
+		f.pendingQ = true
+		return f, nil
+	}
+	f.pendingQ = false
+	var cmd tea.Cmd
+	switch f.field {
+	case fieldTitle:
+		f.title, cmd = f.title.Update(k)
+	case fieldDescription:
+		_, cmd = f.description.update(k)
+	default:
+		if key := k.String(); key == "left" || key == "right" || key == "h" || key == "l" || key == " " {
+			f.choose(key)
+		}
+	}
+	return f, cmd
+}
+
 func (f *formView) mode() string {
 	switch {
+	case f.pendingQ && !vimKeys:
+		return warn.Render("Unsaved changes: esc again to discard them")
 	case f.pendingQ:
 		return warn.Render("Unsaved changes: q again to discard them")
+	case !vimKeys:
+		return ""
 	case f.field == fieldDescription:
 		return f.description.mode()
+	case f.cmd.on || f.cmd.msg != "":
+		return f.cmd.view()
 	case f.field == fieldTitle && f.typingTitle:
 		return accent.Render("-- INSERT --")
 	}
@@ -1118,14 +1182,14 @@ func (f *formView) render(a *app) string {
 	}
 	est := "not estimated"
 	if f.estimate >= 0 {
-		est = scales[f.scale][f.estimate]
+		est = api.Scales[f.scale][f.estimate]
 	}
 	var b strings.Builder
 	b.WriteString(accent.Render(head) + "\n\n")
 	b.WriteString(label(fieldTitle, "Title") + "\n" + f.title.View() + "\n\n")
 	b.WriteString(label(fieldType, "Type") + "  " + choice(fieldType, types[f.kind]) + "\n")
 	b.WriteString(label(fieldPriority, "Priority") + "  " + choice(fieldPriority, priorities[f.prio]) + "\n")
-	if scales[f.scale] != nil {
+	if api.Scales[f.scale] != nil {
 		b.WriteString(label(fieldEstimate, "Estimate") + "  " + choice(fieldEstimate, est) + "\n")
 	}
 	b.WriteString("\n" + label(fieldDescription, "Description") + "\n" + f.description.View() + "\n" + f.mode() + "\n")
@@ -1133,7 +1197,10 @@ func (f *formView) render(a *app) string {
 }
 
 func (f *formView) help() string {
-	return "esc normal mode · tab or j/k field · i edit · h/l choose · ctrl+s save · q cancel"
+	if !vimKeys {
+		return "tab next field · ←/→ choose · ctrl+s save · esc cancel"
+	}
+	return "esc normal mode · tab or j/k field · i edit · h/l choose · :w save · :q cancel · ctrl+s save"
 }
 func (f *formView) typing() bool { return true }
 

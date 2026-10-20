@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"strings"
@@ -9,12 +9,71 @@ import (
 
 // vimArea is a text area with vim's two modes, so esc goes to normal mode instead of throwing the text
 // away. It opens in insert mode. Normal mode moves (h j k l, w b, 0 $, g G), deletes (x, dd), goes back
-// to inserting (i a I A o O), and sends (enter) or cancels (q; twice when there's text).
+// to inserting (i a I A o O), and sends (enter, :w, :wq) or cancels (q, :q; :q! with unsaved text).
+// With keys = standard (config.go) there are no modes: typing types, esc cancels, ctrl+s saves.
 // ponytail: the everyday keys only, no counts, registers or undo; add them when they're missed.
 type vimArea struct {
 	textarea.Model
 	normal  bool
-	pending string // the first key of a pair: d (dd), q (q again to discard)
+	pending string // the first key of a pair: d (dd), q (q again to discard), esc (standard: again to discard)
+	cmd     cmdLine
+	unsaved func() bool // is there something to lose (:q refuses then)? nil: any text
+}
+
+// cmdLine is vim's : prompt (TL-475): :w, :wq and :x save; :q leaves, but not over unsaved text
+// (vim's E37); :q! leaves anyway.
+type cmdLine struct {
+	on        bool
+	text, msg string // what's typed after :, and what the last command said
+}
+
+func (c *cmdLine) open() { c.on, c.text, c.msg = true, "", "" }
+
+// key is one key typed at the prompt. unsaved: there's something :q would throw away.
+func (c *cmdLine) key(k tea.KeyMsg, unsaved bool) vimAction {
+	switch k.Type {
+	case tea.KeyEsc:
+		c.on = false
+	case tea.KeyBackspace:
+		if c.text == "" {
+			c.on = false
+		} else {
+			r := []rune(c.text)
+			c.text = string(r[:len(r)-1])
+		}
+	case tea.KeySpace:
+		c.text += " "
+	case tea.KeyRunes:
+		c.text += string(k.Runes)
+	case tea.KeyEnter:
+		c.on = false
+		switch cmd := strings.TrimSpace(c.text); cmd {
+		case "":
+		case "w", "wq", "x", "w!", "wq!", "x!":
+			return vimSend
+		case "q":
+			if !unsaved {
+				return vimCancel
+			}
+			c.msg = "E37: No write since last change (add ! to override)"
+		case "q!":
+			return vimCancel
+		default:
+			c.msg = "E492: Not an editor command: " + cmd
+		}
+	}
+	return vimNone
+}
+
+// view is the prompt while it's open, or what the last command said.
+func (c *cmdLine) view() string {
+	switch {
+	case c.on:
+		return ":" + c.text
+	case c.msg != "":
+		return warn.Render(c.msg)
+	}
+	return ""
 }
 
 type vimAction int
@@ -82,6 +141,19 @@ func (v *vimArea) update(msg tea.Msg) (vimAction, tea.Cmd) {
 	if k.String() == "ctrl+s" {
 		return vimSend, nil
 	}
+	if !vimKeys { // standard keys: no modes; esc cancels, twice over unsaved text
+		if k.String() != "esc" {
+			v.pending = ""
+			var cmd tea.Cmd
+			v.Model, cmd = v.Model.Update(k)
+			return vimNone, cmd
+		}
+		if v.pending == "esc" || !v.hasUnsaved() {
+			return vimCancel, nil
+		}
+		v.pending = "esc"
+		return vimNone, nil
+	}
 	if !v.normal {
 		if k.String() == "esc" {
 			v.normal, v.pending = true, ""
@@ -92,9 +164,14 @@ func (v *vimArea) update(msg tea.Msg) (vimAction, tea.Cmd) {
 		v.Model, cmd = v.Model.Update(k)
 		return vimNone, cmd
 	}
+	if v.cmd.on {
+		return v.cmd.key(k, v.hasUnsaved()), nil
+	}
 	key, pending := k.String(), v.pending
-	v.pending = ""
+	v.pending, v.cmd.msg = "", ""
 	switch {
+	case key == ":":
+		v.cmd.open()
 	case pending == "d" && key == "d": // the whole line, and one of the line breaks around it
 		last := v.Line() == v.LineCount()-1
 		v.send(lineStart, delToEnd)
@@ -108,7 +185,7 @@ func (v *vimArea) update(msg tea.Msg) (vimAction, tea.Cmd) {
 	case key == "d":
 		v.pending = "d"
 	case key == "q":
-		if strings.TrimSpace(v.Value()) == "" {
+		if !v.hasUnsaved() {
 			return vimCancel, nil
 		}
 		v.pending = "q"
@@ -123,9 +200,22 @@ func (v *vimArea) update(msg tea.Msg) (vimAction, tea.Cmd) {
 	return vimNone, nil
 }
 
-// mode is the status line: what mode it's in, and what a half-typed pair is waiting for.
+func (v *vimArea) hasUnsaved() bool {
+	if v.unsaved != nil {
+		return v.unsaved()
+	}
+	return strings.TrimSpace(v.Value()) != ""
+}
+
+// mode is the status line: what mode it's in, the : prompt, and what a half-typed pair is waiting for.
 func (v *vimArea) mode() string {
 	switch {
+	case v.pending == "esc":
+		return warn.Render("Unsaved text: esc again to discard it")
+	case !vimKeys:
+		return ""
+	case v.cmd.on || v.cmd.msg != "":
+		return v.cmd.view()
 	case v.pending == "q":
 		return warn.Render("Unsent text: q again to discard it")
 	case v.normal:
@@ -134,4 +224,10 @@ func (v *vimArea) mode() string {
 	return accent.Render("-- INSERT --")
 }
 
-const vimHelp = "esc normal mode · i/a/o insert · enter or ctrl+s send · q cancel"
+// editHelp is the keys for writing: vim's, or standard ones (keys = standard in the config).
+func editHelp() string {
+	if !vimKeys {
+		return "ctrl+s save · esc cancel"
+	}
+	return "esc normal mode · i/a/o insert · :w save · :q cancel (:q! discards) · ctrl+s save"
+}
