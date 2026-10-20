@@ -42,7 +42,7 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most u
 | Screen | Keys |
 |---|---|
 | My work | `tab` switches between My work and Mentions, below it |
-| Lists (My work, Mentions, search, backlog) | `j`/`k` move · `g`/`G` top/bottom · `enter` open · `r` reload |
+| Lists (My work, Mentions, search, backlog) | `j`/`k` move · `g`/`G` top/bottom · `h`/`l` slide the selected title along to read the rest (`0` start, `$` end) · `enter` open · `r` reload |
 | Backlog | also `n` new ticket · `s` sort (backlog order, newest, oldest) · `f` filter by labels |
 | Label filter | `j`/`k` · `space` toggle · `c` clear · `enter` apply · `esc` cancel |
 | Projects | `j`/`k` · `enter` opens a project: its boards, then its backlog |
