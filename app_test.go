@@ -11,6 +11,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // liveRunning: a standup on b1 and a refinement on p1 are running, hosted by Alex (user_2), who has
@@ -627,4 +628,51 @@ func TestMyWorkShowsRunningSessions(t *testing.T) {
 		t.Fatalf("ended sessions still shown:\n%s", a.View())
 	}
 	expect(t, a, "tab my work/mentions ·")
+}
+
+// A project's boards line up: the sprints/kanban column starts in the same place whatever the name.
+func TestProjectBoardsLineUp(t *testing.T) {
+	a := newApp(&Client{})
+	a.width, a.height = 100, 30
+	v := &projectView{id: "p1", project: &Project{Name: "P", Boards: []Board{{Name: "Web", Style: "sprints"}, {Name: "LandingPage", Style: "kanban"}, {Name: "Über", Style: "sprints"}}}}
+	var at []int
+	for _, line := range strings.Split(v.render(a), "\n") {
+		for _, label := range []string{"sprints", "kanban"} {
+			if i := strings.Index(line, label); i >= 0 {
+				at = append(at, lipgloss.Width(line[:i]))
+			}
+		}
+	}
+	if len(at) != 3 || at[0] != at[1] || at[1] != at[2] {
+		t.Fatalf("labels start at %v:\n%s", at, v.render(a))
+	}
+}
+
+// A list's labels (backlog) or location (My work) line up after the titles, whatever their length.
+func TestListColumnsLineUp(t *testing.T) {
+	a := newApp(&Client{})
+	a.width, a.height = 100, 30
+	v := &listView{tag: "backlog:p1", heading: "Backlog", project: "p1", items: []Ticket{
+		{Key: "TL-1", Title: "Short", Labels: []string{"ux"}},
+		{Key: "TL-22", Title: "A much longer ticket title here", Labels: []string{"api", "backend"}},
+		{Key: "TL-333", Title: "Ünïcode title", Labels: []string{"ops"}},
+	}}
+	var at []int
+	for _, line := range strings.Split(v.render(a), "\n") {
+		for _, label := range []string{"ux", "api, backend", "ops"} {
+			if i := strings.Index(line, label); i >= 0 {
+				at = append(at, lipgloss.Width(line[:i]))
+			}
+		}
+	}
+	if len(at) != 3 || at[0] != at[1] || at[1] != at[2] {
+		t.Fatalf("labels start at %v:\n%s", at, v.render(a))
+	}
+	// a title too long for the screen is cut, and its row still fits
+	v.items[1].Title = strings.Repeat("long ", 40)
+	for _, line := range strings.Split(v.render(a), "\n") {
+		if w := lipgloss.Width(line); w > a.width {
+			t.Fatalf("row %d wide on a %d screen: %q", w, a.width, line)
+		}
+	}
 }

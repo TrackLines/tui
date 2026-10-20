@@ -115,17 +115,26 @@ func (v *listView) render(a *app) string {
 	if len(v.items) == 0 {
 		return b.String() + muted.Render("Nothing here.") + "\n"
 	}
-	rows := make([]string, len(v.items))
+	extras := make([]string, len(v.items))
+	widest, longest := 0, 0
 	for i, t := range v.items {
-		extra := where(t)
+		extras[i] = where(t)
 		if v.project != "" {
-			extra = strings.Join(t.Labels, ", ")
+			extras[i] = strings.Join(t.Labels, ", ")
 		}
 		if v.mentions != nil { // named as it's drawn: the names may arrive after the list
 			m := v.mentions[i]
-			extra = a.name(m.Actor) + " · " + day(m.MentionedAt) + " · " + t.ProjectName
+			extras[i] = a.name(m.Actor) + " · " + day(m.MentionedAt) + " · " + t.ProjectName
 		}
-		row := fmt.Sprintf("%-9s %s  %s", t.Key, cut(t.Title, max(20, a.width-len(extra)-16)), muted.Render(extra))
+		widest, longest = max(widest, lipgloss.Width(extras[i])), max(longest, lipgloss.Width(t.Title))
+	}
+	// one width for every title (the longest, or what's left beside the widest extra), so the labels
+	// or location after them line up in a column
+	titleW := min(longest, max(20, a.width-12-widest-2))
+	rows := make([]string, len(v.items))
+	for i, t := range v.items {
+		title := cut(t.Title, titleW)
+		row := fmt.Sprintf("%-9s %s%s  %s", t.Key, title, strings.Repeat(" ", max(0, titleW-lipgloss.Width(title))), muted.Render(extras[i]))
 		if p := t.Priority; p == "urgent" || p == "high" {
 			row += " " + priority(p)
 		}
@@ -458,13 +467,18 @@ func (v *projectView) render(a *app) string {
 	if v.project == nil {
 		return ""
 	}
+	// names padded to the longest, so the sprints/kanban column lines up
+	width := len("Backlog")
+	for _, b := range v.project.Boards {
+		width = max(width, lipgloss.Width(b.Name))
+	}
 	var rows []string
 	for _, b := range v.project.Boards {
 		style := "sprints"
 		if b.Style == "kanban" {
 			style = "kanban"
 		}
-		rows = append(rows, fmt.Sprintf("%s  %s", b.Name, muted.Render(style)))
+		rows = append(rows, b.Name+strings.Repeat(" ", width-lipgloss.Width(b.Name))+"  "+muted.Render(style))
 	}
 	rows = append(rows, "Backlog")
 	head := accent.Render(v.project.Name)
