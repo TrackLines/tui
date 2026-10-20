@@ -25,6 +25,8 @@ It's for the everyday work. You can follow a standup or refinement someone's run
 
    On Windows or macOS, or to build it yourself (Go 1.26+): `make install`.
 
+   **Updates:** a release build checks GitHub for a newer release when it starts. If there is one, the header says so, and `?` then `u` installs it: it downloads the binary, checks it against `SHA256SUMS`, and replaces the one you're running. Restart to use it. `TRACKLINES_NO_UPDATE_CHECK=1` turns the check off. A build of your own (`make install`) doesn't check.
+
    Errors on our side (the API failing or unreachable, a crash) are reported to [Bugfixes](https://bugfix.es), so they get fixed. Reports never include your API key, what you searched for, or what you wrote. Set `TRACKLINES_NO_REPORTS=1` to turn reporting off. The local copy of each one goes to `~/.local/state/tracklines/tracklines.log`.
 
 4. On Omarchy, add it to the app launcher:
@@ -35,7 +37,7 @@ It's for the everyday work. You can follow a standup or refinement someone's run
 
 ## Keys
 
-Everywhere: `1` My work (with Mentions) · `2` Projects · `/` search everything · `t` go to a ticket by its key (`TL-308` or `tl-308`) · `esc` or `q` back (on My work and Projects, `q` quits) · `Q` quit from anywhere.
+Everywhere: `1` My work (with Mentions) · `2` Projects · `/` search everything · `t` go to a ticket by its key (`TL-308` or `tl-308`) · `esc` or `q` back (on My work and Projects, `q` quits) · `Q` quit from anywhere · `?` your version, updates and these keys.
 
 | Screen | Keys |
 |---|---|

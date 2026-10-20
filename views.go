@@ -141,7 +141,7 @@ func (v *listView) render(a *app) string {
 }
 
 func (v *listView) help() string {
-	h := "j/k move · enter open · / search · t go to · 1 2 tabs · r reload · q quit"
+	h := "j/k move · enter open · / search · t go to · 1 2 tabs · r reload · ? help · q quit"
 	if v.project != "" {
 		h = "j/k move · enter open · n new ticket · s sort · f labels · esc/q back · Q quit"
 	}
@@ -203,7 +203,7 @@ func (v *homeView) render(a *app) string {
 }
 
 func (v *homeView) help() string {
-	return "tab my work/mentions · j/k move · enter open · / search · t go to · 1 2 tabs · r reload · q quit"
+	return "tab my work/mentions · j/k move · enter open · / search · t go to · 1 2 tabs · r reload · ? help · q quit"
 }
 func (v *homeView) typing() bool { return false }
 
@@ -342,7 +342,7 @@ func (v *projectsView) render(a *app) string {
 }
 
 func (v *projectsView) help() string {
-	return "j/k move · enter open · / search · t go to · 1 2 tabs · q quit"
+	return "j/k move · enter open · / search · t go to · 1 2 tabs · ? help · q quit"
 }
 func (v *projectsView) typing() bool { return false }
 
