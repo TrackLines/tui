@@ -16,11 +16,14 @@ It's for the everyday work. Settings, API keys, standups and refinement stay in 
    ```
 
    Or set `TRACKLINES_API_KEY` instead.
-3. Build it (Go 1.26+) into `~/.local/bin`:
+3. Download it from [Releases](https://github.com/tracklines/tui/releases): `tracklines-linux-amd64` (x86) or `tracklines-linux-arm64` (arm), with `SHA256SUMS` to check it:
 
    ```sh
-   make install
+   curl -fLo ~/.local/bin/tracklines https://github.com/tracklines/tui/releases/latest/download/tracklines-linux-amd64
+   chmod +x ~/.local/bin/tracklines
    ```
+
+   On Windows or macOS, or to build it yourself (Go 1.26+): `make install`.
 
    Errors on our side (the API failing or unreachable, a crash) are reported to [Bugfixes](https://bugfix.es), so they get fixed. Reports never include your API key, what you searched for, or what you wrote. Set `TRACKLINES_NO_REPORTS=1` to turn reporting off. The local copy of each one goes to `~/.local/state/tracklines/tracklines.log`.
 
@@ -64,3 +67,5 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `/` search everything
 ```sh
 go test ./...
 ```
+
+CI (`.github/workflows/ci.yml`) runs vet and the tests on every push, and builds static Linux binaries for amd64 and arm64. Pushing a `v*` tag (e.g. `git tag v0.1.0 && git push --tags`) publishes them as a GitHub release.
