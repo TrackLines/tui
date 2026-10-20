@@ -70,4 +70,4 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `/` search everything
 go test ./...
 ```
 
-CI (`.github/workflows/ci.yml`) runs vet and the tests on every push, and builds static Linux binaries for amd64 and arm64. Pushing a `v*` tag (e.g. `git tag v0.1.0 && git push --tags`) publishes them as a GitHub release.
+CI (`.github/workflows/ci.yml`) runs vet and the tests on every push and pull request. A `v*` tag, from making a release on GitHub or `git tag v0.1.0 && git push --tags`, also builds static Linux binaries for amd64 and arm64 and attaches them to the release.
