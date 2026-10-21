@@ -216,6 +216,18 @@ func (c *Client) Move(ctx context.Context, ticket string, col Column) error {
 	return c.do(ctx, http.MethodPost, "/tickets/"+url.PathEscape(ticket)+"/move", map[string]any{"column_id": col.ID, "position": len(col.Tickets)}, nil)
 }
 
+// Resolution is how a backlog ticket closes in place: done (finished) or wont_do (decided against).
+const (
+	ResolutionDone   = "done"
+	ResolutionWontDo = "wont_do"
+)
+
+// Resolve closes a backlog ticket in place as done or wont_do, with an optional reason (a comment the
+// creator is told about). Moving it onto a board reopens it.
+func (c *Client) Resolve(ctx context.Context, ticket, resolution, reason string) error {
+	return c.do(ctx, http.MethodPost, "/tickets/"+url.PathEscape(ticket)+"/resolve", map[string]string{"resolution": resolution, "reason": reason}, nil)
+}
+
 func (c *Client) Projects(ctx context.Context) ([]Project, error) {
 	var out []Project
 	err := c.do(ctx, http.MethodGet, "/projects", nil, &out)
