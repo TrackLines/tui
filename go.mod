@@ -2,6 +2,8 @@ module github.com/tracklines/tui
 
 go 1.26.1
 
+toolchain go1.27.3
+
 require (
 	github.com/bugfixes/go-bugfixes v0.19.5
 	github.com/charmbracelet/bubbles v1.0.0
