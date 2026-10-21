@@ -74,7 +74,7 @@ func (v *aboutView) render(a *app) string {
 	b.WriteString("Keys     " + bold.Render(keys) + muted.Render("  (for "+other+": keys = "+other+" in "+config.Path()+")") + "\n")
 	b.WriteString("\n" + bold.Render("Everywhere") + "\n")
 	for _, k := range [][2]string{
-		{"1 / 2", "My work (and Mentions) / Projects"},
+		{"1 / 2", "My work (Created by me, Mentions) / Projects"},
 		{"/", "search everything"},
 		{"t", "go to a ticket by its key (TL-308)"},
 		{"esc / q", "back (q quits on My work and Projects)"},

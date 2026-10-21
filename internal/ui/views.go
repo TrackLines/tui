@@ -25,6 +25,7 @@ type listView struct {
 	project      string // backlog
 	items        []Ticket
 	mentions     []Mention // Mentions: who and when, per item
+	loaded       bool      // the first load has arrived (so empty is "nothing" not "not yet")
 	cursor       int
 	height       int      // rows to draw in; 0: the whole screen
 	hscroll      int      // how far the selected row's title is slid along (h/l), in characters
@@ -42,6 +43,8 @@ func (v *listView) load(a *app) tea.Cmd {
 		switch {
 		case v.tag == "mentions":
 			return a.api.Mentions(ctx)
+		case v.tag == "created":
+			return a.api.MyCreated(ctx)
 		case v.project != "":
 			return a.api.Backlog(ctx, v.project, v.sort, v.labels)
 		case v.query != "":
@@ -57,7 +60,7 @@ func (v *listView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		if msg.tag != v.tag {
 			return v, nil
 		}
-		v.items, v.mentions = nil, nil
+		v.items, v.mentions, v.loaded = nil, nil, true
 		switch d := msg.data.(type) {
 		case []Ticket:
 			v.items = d
@@ -200,25 +203,29 @@ func (v *listView) help() string {
 
 func (v *listView) typing() bool { return false }
 
-// homeView is My work and Mentions together, one above the other, with any standup or refinement
-// running in the organization on top (enter follows it); tab moves between the sections.
+// homeView is My work, Created by me and Mentions stacked one above the other, with any standup or
+// refinement running in the organization on top (enter follows it); tab moves between the sections.
+// A section with nothing in it isn't shown: Created by me appears only once you've raised a ticket,
+// and Mentions once someone has mentioned you (TL-490).
 type homeView struct {
-	sections  [2]*listView
+	sections  [3]*listView // 0 My work, 1 Created by me, 2 Mentions
 	live      []liveSession
 	liveAt    time.Time // when the sessions were last looked for
 	liveRow   int
-	focus     int // 0 My work, 1 Mentions, 2 running sessions
+	focus     int // a section index 0–2, or focusLive for the running sessions
 	forceLive bool
 }
 
 const liveEvery = 30 * time.Second // look for sessions again at most this often when coming back here
 
+const focusLive = 3 // focus value for the running-sessions row (sections are 0–2)
+
 func newHome() *homeView {
-	return &homeView{sections: [2]*listView{{tag: "mywork", heading: "My work"}, {tag: "mentions", heading: "Mentions"}}}
+	return &homeView{sections: [3]*listView{{tag: "mywork", heading: "My work"}, {tag: "created", heading: "Created by me"}, {tag: "mentions", heading: "Mentions"}}}
 }
 
 func (v *homeView) load(a *app) tea.Cmd {
-	cmds := []tea.Cmd{v.sections[0].load(a), v.sections[1].load(a)}
+	cmds := []tea.Cmd{v.sections[0].load(a), v.sections[1].load(a), v.sections[2].load(a)}
 	if v.forceLive || time.Since(v.liveAt) > liveEvery {
 		v.liveAt, v.forceLive = time.Now(), false
 		cmds = append(cmds, fetch("live", func(ctx context.Context) (any, error) { return runningSessions(ctx, a.api) }))
@@ -226,12 +233,39 @@ func (v *homeView) load(a *app) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// order is the sections tab goes through, top to bottom: sessions only while there are some.
-func (v *homeView) order() []int {
-	if len(v.live) > 0 {
-		return []int{2, 0, 1}
+// visible is the sections with something to show, in order; one still loading counts as visible so it
+// doesn't flash in and out. My work is kept even when empty until it has loaded.
+func (v *homeView) visible() []int {
+	var out []int
+	for i, s := range v.sections {
+		if !s.loaded || len(s.items) > 0 {
+			out = append(out, i)
+		}
 	}
-	return []int{0, 1}
+	return out
+}
+
+// order is what tab goes through, top to bottom: running sessions (while there are some), then the
+// visible sections.
+func (v *homeView) order() []int {
+	o := v.visible()
+	if len(v.live) > 0 {
+		return append([]int{focusLive}, o...)
+	}
+	return o
+}
+
+// focusValid keeps the focus on something that's actually on screen (a section may have just been
+// hidden, or the sessions ended).
+func (v *homeView) focusValid() {
+	o := v.order()
+	if len(o) == 0 {
+		v.focus = 0
+		return
+	}
+	if indexOf(o, v.focus) < 0 {
+		v.focus = o[0]
+	}
 }
 
 func (v *homeView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
@@ -240,9 +274,7 @@ func (v *homeView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		if l, isLive := msg.data.([]liveSession); isLive && msg.tag == "live" {
 			v.live = l
 			v.liveRow = min(v.liveRow, max(len(l)-1, 0))
-			if v.focus == 2 && len(l) == 0 {
-				v.focus = 0
-			}
+			v.focusValid()
 			return v, nil
 		}
 		var cmds []tea.Cmd
@@ -250,11 +282,15 @@ func (v *homeView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			_, cmd := s.update(a, msg)
 			cmds = append(cmds, cmd)
 		}
+		v.focusValid()
 		return v, tea.Batch(cmds...)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "tab", "shift+tab":
 			o := v.order()
+			if len(o) == 0 {
+				return v, nil
+			}
 			d := 1
 			if msg.String() == "shift+tab" {
 				d = -1
@@ -265,7 +301,7 @@ func (v *homeView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			a.loading, v.forceLive = true, true
 			return v, v.load(a)
 		}
-		if v.focus == 2 {
+		if v.focus == focusLive {
 			if cursorKeys(msg.String(), &v.liveRow, len(v.live)) {
 				return v, nil
 			}
@@ -293,29 +329,33 @@ func (v *homeView) render(a *app) string {
 			rows[i] = ok.Render("● ") + strings.ToUpper(l.kind[:1]) + l.kind[1:] + " on " + bold.Render(where) + muted.Render(", hosted by "+a.name(l.host))
 		}
 		cursor := -1
-		if v.focus == 2 {
+		if v.focus == focusLive {
 			cursor = v.liveRow
 		}
 		out = append(out, accent.Render("Running now")+muted.Render("  enter to follow")+"\n"+lines(rows, cursor, 3))
 		used = min(len(rows), 3) + 2
 	}
-	// My work gets the larger share; Mentions what's left, at least a few rows
+	// split what's left evenly between the visible sections (heading + blank cost a few rows each)
+	vis := v.visible()
 	rest := a.rows() - used
-	mentions := max(3, (rest-4)/3)
-	v.sections[0].height, v.sections[1].height = max(3, rest-4-mentions-4), mentions
-	for i, s := range v.sections {
-		s.inactive = i != v.focus
+	each := max(3, rest/max(1, len(vis))-3)
+	for _, i := range vis {
+		s := v.sections[i]
+		s.height, s.inactive = each, i != v.focus
 		out = append(out, s.render(a))
 	}
 	return strings.Join(out, "\n")
 }
 
 func (v *homeView) help() string {
-	h := "tab my work/mentions"
+	var names []string
 	if len(v.live) > 0 {
-		h = "tab running now/my work/mentions"
+		names = append(names, "running now")
 	}
-	return h + " · j/k move · h/l scroll title · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit"
+	for _, i := range v.visible() {
+		names = append(names, strings.ToLower(v.sections[i].heading))
+	}
+	return "tab " + strings.Join(names, "/") + " · j/k move · h/l scroll title · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit"
 }
 func (v *homeView) typing() bool { return false }
 

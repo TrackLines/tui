@@ -171,6 +171,11 @@ func (c *Client) MyWork(ctx context.Context) ([]Ticket, error) {
 	return c.search(ctx, url.Values{"assignee": {"me"}, "status": {"open"}, "limit": {"50"}})
 }
 
+// MyCreated is the key owner's open tickets that they raised ("Created by me", TL-490).
+func (c *Client) MyCreated(ctx context.Context) ([]Ticket, error) {
+	return c.search(ctx, url.Values{"creator": {"me"}, "status": {"open"}, "limit": {"50"}})
+}
+
 // Search is full-text over titles, descriptions and comments; a ticket key comes first.
 func (c *Client) Search(ctx context.Context, q string) ([]Ticket, error) {
 	return c.search(ctx, url.Values{"q": {q}, "limit": {"50"}})
