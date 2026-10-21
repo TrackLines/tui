@@ -84,6 +84,8 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 		case r.Method != http.MethodGet:
 			w.WriteHeader(http.StatusNoContent)
 			return
+		case p == "/api/search" && r.URL.Query().Get("creator") == "me":
+			out = []any{map[string]any{"id": "t2", "key": "TL-2", "title": "Idea"}} // Created by me
 		case p == "/api/search":
 			out = []any{ticket("t1"), map[string]any{"id": "t2", "key": "TL-2", "title": "Idea"}}
 		case p == "/api/ticket-keys/TL-1":
@@ -196,22 +198,29 @@ func expect(t *testing.T, a *app, want ...string) {
 
 func TestMyWorkAndMentions(t *testing.T) {
 	a, calls := start(t)
-	if !strings.Contains(strings.Join(*calls, "\n"), "/api/search?assignee=me&limit=50&status=open") {
+	joined := strings.Join(*calls, "\n")
+	if !strings.Contains(joined, "/api/search?assignee=me&limit=50&status=open") {
 		t.Fatalf("my work isn't my open tickets: %v", *calls)
 	}
-	expect(t, a, "1 My work", "2 Projects", "TL-1", "Web · To do", "TL-2", "Backlog")
-	// Mentions are on the same screen, below; tab moves between the two
-	expect(t, a, "Mentions", "Sam Doe · 2026-10-19")
-	if !strings.Contains(strings.Join(*calls, "\n"), "/api/mentions/page?page=1&per_page=50&hide_done=true") {
+	if !strings.Contains(joined, "/api/search?creator=me&limit=50&status=open") {
+		t.Fatalf("created-by-me isn't fetched: %v", *calls)
+	}
+	if !strings.Contains(joined, "/api/mentions/page?page=1&per_page=50&hide_done=true") {
 		t.Fatalf("mentions: %v", *calls)
 	}
-	press(a, "j") // My work's cursor: TL-2
+	// three stacked sections: My work (assigned), Created by me, Mentions; tab moves between them
+	expect(t, a, "1 My work", "2 Projects", "My work", "TL-1", "Web · To do", "TL-2", "Created by me", "Mentions", "Sam Doe · 2026-10-19")
+	// My work opens its own cursor
+	press(a, "j", "enter") // cursor TL-2
+	expect(t, a, "TL-2", "Idea")
+	press(a, "esc")
+	// tab to Created by me (the one ticket I raised), enter opens it
 	press(a, "tab", "enter")
-	expect(t, a, "TL-1", "Fix login") // Mentions' first, not My work's TL-2
-	press(a, "esc", "tab", "enter")
-	expect(t, a, "TL-2", "Idea") // back to My work, its cursor where it was
-	press(a, "esc", "tab", "enter")
-	expect(t, a, "Fix login", "Login fails", "on it", "Sam Doe") // a comment, by name
+	expect(t, a, "TL-2", "Idea")
+	press(a, "esc")
+	// tab again to Mentions, enter opens the mentioned ticket's detail (a comment, by name)
+	press(a, "tab", "enter")
+	expect(t, a, "Fix login", "Login fails", "on it", "Sam Doe")
 }
 
 func TestProjectsBoardsAndMovingOnTheBoard(t *testing.T) {
@@ -327,6 +336,33 @@ func TestBacklogTicketsResolveInPlace(t *testing.T) {
 	press(a2, "x")
 	if len(*calls2) != n {
 		t.Fatalf("board ticket resolved: %v", (*calls2)[n:])
+	}
+}
+
+func TestHomeHidesEmptySections(t *testing.T) {
+	a := newApp(&Client{})
+	a.width, a.height = 100, 40
+	h := newHome()
+	h.sections[0].loaded, h.sections[0].items = true, []Ticket{{ID: "t1", Key: "TL-1", Title: "Fix"}}
+	h.sections[1].loaded = true // Created by me: none yet
+	h.sections[2].loaded = true // Mentions: none
+	view := h.render(a)
+	if !strings.Contains(view, "My work") {
+		t.Fatalf("my work missing:\n%s", view)
+	}
+	if strings.Contains(view, "Created by me") || strings.Contains(view, "Mentions") {
+		t.Fatalf("empty sections shown:\n%s", view)
+	}
+	if got := h.visible(); len(got) != 1 || got[0] != 0 {
+		t.Fatalf("visible: %v", got)
+	}
+	// raise a ticket: the Created by me section and its tab appear
+	h.sections[1].items = []Ticket{{ID: "t9", Key: "TL-9", Title: "Idea"}}
+	if !strings.Contains(h.render(a), "Created by me") {
+		t.Fatal("created section didn't appear")
+	}
+	if !strings.Contains(h.help(), "created by me") {
+		t.Fatalf("help: %s", h.help())
 	}
 }
 
@@ -600,7 +636,7 @@ func TestMyWorkShowsRunningSessions(t *testing.T) {
 	liveRunning, liveFocus = true, nil
 	t.Cleanup(func() { liveRunning, liveFocus = false, nil })
 	a, calls := start(t)
-	expect(t, a, "Running now", "Refinement on TrackLines", "Standup on TrackLines → Web", "hosted by Alex Roe", "tab running now/my work/mentions")
+	expect(t, a, "Running now", "Refinement on TrackLines", "Standup on TrackLines → Web", "hosted by Alex Roe", "tab running now/my work/created by me/mentions")
 	count := func() (n int) {
 		for _, c := range *calls {
 			if strings.HasPrefix(c, "GET /api/live/sessions ") {
@@ -610,7 +646,7 @@ func TestMyWorkShowsRunningSessions(t *testing.T) {
 		return n
 	}
 	before := count()
-	press(a, "tab", "tab", "j", "enter") // Mentions, then Running now; the standup
+	press(a, "shift+tab", "j", "enter") // back up to Running now; j to the standup, follow it
 	expect(t, a, "Following the standup on Web")
 	press(a, "esc")
 	expect(t, a, "Running now")
@@ -621,13 +657,13 @@ func TestMyWorkShowsRunningSessions(t *testing.T) {
 	if count() != before+1 {
 		t.Fatal("r didn't look for sessions again")
 	}
-	// nothing running: no section, and tab is just My work and Mentions
+	// nothing running: no section, and tab is just the ticket sections
 	liveRunning = false
 	press(a, "r")
 	if strings.Contains(a.View(), "Running now") {
 		t.Fatalf("ended sessions still shown:\n%s", a.View())
 	}
-	expect(t, a, "tab my work/mentions ·")
+	expect(t, a, "tab my work/created by me/mentions ·")
 }
 
 // A project's boards line up: the sprints/kanban column starts in the same place whatever the name.
