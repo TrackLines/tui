@@ -305,6 +305,31 @@ func TestBacklogTicketsAreMovedInTheWebAppAndSearch(t *testing.T) {
 	press(a, "q") // typing ended: q quits again, not a letter
 }
 
+func TestBacklogTicketsResolveInPlace(t *testing.T) {
+	a, calls := start(t)
+	press(a, "j", "enter") // TL-2, in the backlog
+	if !strings.Contains(a.View(), "x close/won") {
+		t.Fatalf("backlog ticket offers no resolve:\n%s", a.View())
+	}
+	press(a, "x", "j", "enter") // open the picker, choose Won't do, resolve
+	if c := strings.Join(*calls, "\n"); !strings.Contains(c, `POST /api/tickets/t2/resolve {"reason":"","resolution":"wont_do"}`) {
+		t.Fatalf("resolve not sent:\n%s", c)
+	}
+	expect(t, a, "Closed as won") // back on the ticket with the result
+
+	// a board ticket has a Done column instead, so x does nothing there
+	a2, calls2 := start(t)
+	press(a2, "enter") // TL-1, on the Web board
+	if strings.Contains(a2.View(), "x close/won") {
+		t.Fatalf("board ticket offers resolve:\n%s", a2.View())
+	}
+	n := len(*calls2)
+	press(a2, "x")
+	if len(*calls2) != n {
+		t.Fatalf("board ticket resolved: %v", (*calls2)[n:])
+	}
+}
+
 func TestBadKey(t *testing.T) {
 	api, _ := fakeAPI(t)
 	api.Key = "tl_p_wrong"

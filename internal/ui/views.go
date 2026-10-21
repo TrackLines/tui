@@ -743,6 +743,13 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 				return v, nil
 			}
 			return v, msgOf(pushMsg{&moveView{ticket: *t}})
+		case "x":
+			// backlog tickets have no Done column to move into, so they close in place (TL-272);
+			// board tickets close by moving to Done, which 'm' already does.
+			if t.BoardID != nil || t.Done {
+				return v, nil
+			}
+			return v, msgOf(pushMsg{&resolveView{ticket: *t}})
 		case "c":
 			return v, msgOf(pushMsg{newComment(*t)})
 		case "a":
@@ -817,9 +824,52 @@ func (v *ticketView) help() string {
 	if v.ticket != nil && v.ticket.Done {
 		return "j/k scroll · e edit · m move · c comment · r reload · esc/q back"
 	}
-	return "j/k scroll · e edit · m move · c comment · a assign me / unassign · r reload · esc/q back"
+	resolve := ""
+	if v.ticket != nil && v.ticket.BoardID == nil {
+		resolve = "x close/won’t do · "
+	}
+	return "j/k scroll · e edit · m move · c comment · a assign me / unassign · " + resolve + "r reload · esc/q back"
 }
 func (v *ticketView) typing() bool { return false }
+
+// resolveView closes a backlog ticket in place: done (finished) or won't do (decided against). The
+// creator is told either way; a reason goes on first as a comment ('c'). Moving it to a board reopens it.
+type resolveView struct {
+	ticket Ticket
+	cursor int
+}
+
+func (v *resolveView) load(a *app) tea.Cmd { a.loading = false; return nil }
+
+func (v *resolveView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
+	if msg, isKey := msg.(tea.KeyMsg); isKey {
+		if cursorKeys(msg.String(), &v.cursor, 2) {
+			return v, nil
+		}
+		if msg.String() == "enter" {
+			id := v.ticket.ID
+			res, done := api.ResolutionDone, "Closed as done."
+			if v.cursor == 1 {
+				res, done = api.ResolutionWontDo, "Closed as won’t do."
+			}
+			return v, func() tea.Msg {
+				if err := a.api.Resolve(context.Background(), id, res, ""); err != nil {
+					return statusMsg{err: err}
+				}
+				return popMsg{ok.Render(done)}
+			}
+		}
+	}
+	return v, nil
+}
+
+func (v *resolveView) render(a *app) string {
+	rows := []string{"  Close (done)", "  Won’t do (ignore)"}
+	return accent.Render("Resolve "+v.ticket.Key) + "  " + v.ticket.Title + "\n\n" + lines(rows, v.cursor, a.rows()-2)
+}
+
+func (v *resolveView) help() string { return "j/k pick · enter resolve · esc cancel" }
+func (v *resolveView) typing() bool { return false }
 
 // moveView picks the column to move a ticket to, on its board.
 type moveView struct {
