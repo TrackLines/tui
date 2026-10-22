@@ -1153,8 +1153,14 @@ func newComment(t Ticket) *commentView { return &commentView{t, newVimArea("Your
 
 func (v *commentView) load(a *app) tea.Cmd {
 	a.loading = false
-	v.input.SetWidth(max(20, a.width-2))
+	v.size(a)
 	return textarea.Blink
+}
+
+// size fills the screen's body with the text area, less the title and mode lines (TL-523).
+func (v *commentView) size(a *app) {
+	v.input.SetWidth(max(20, a.width-2))
+	v.input.SetHeight(max(3, a.rows()-3))
 }
 
 func (v *commentView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
@@ -1178,6 +1184,7 @@ func (v *commentView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 }
 
 func (v *commentView) render(a *app) string {
+	v.size(a) // the window may have changed
 	return accent.Render("Comment on "+v.ticket.Key) + "  " + v.ticket.Title + "\n\n" + v.input.View() + "\n" + v.input.mode() + "\n"
 }
 func (v *commentView) help() string { return editHelp() }
