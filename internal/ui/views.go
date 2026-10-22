@@ -757,7 +757,13 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			v.ticket, v.comments = &d.t, d.comments
 			v.view = viewport.New(a.width, a.rows())
 			v.view.SetContent(v.detail(a))
+			return v, v.timeboxTickCmd() // live countdown while this spike is In Progress (TL-512)
 		}
+	case timeboxTick:
+		if msg.id != v.id {
+			return v, nil
+		}
+		return v, v.timeboxTickCmd() // re-arm; render() recomputes detail() with the current time
 	case tea.KeyMsg:
 		if v.ticket == nil {
 			return v, nil
@@ -819,6 +825,22 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	return v, nil
 }
 
+type timeboxTick struct{ id string }
+
+// timeboxTickCmd ticks every minute while viewing an In Progress spike that has a timebox, so the
+// countdown advances live; nil (no tick) otherwise, so it stops when the spike is done or on leaving.
+func (v *ticketView) timeboxTickCmd() tea.Cmd {
+	t := v.ticket
+	if t == nil || t.Type != "spike" || t.Done || t.StartedAt == nil {
+		return nil
+	}
+	if timeboxLabel(t.TimeboxDays, t.TimeboxHours) == "" {
+		return nil
+	}
+	id := v.id
+	return tea.Tick(time.Minute, func(time.Time) tea.Msg { return timeboxTick{id} })
+}
+
 func (v *ticketView) detail(a *app) string {
 	t := v.ticket
 	var b strings.Builder
@@ -826,6 +848,9 @@ func (v *ticketView) detail(a *app) string {
 	meta := []string{t.Type, priority(t.Priority), where(*t)}
 	if t.Estimate != nil {
 		meta = append(meta, "estimate "+*t.Estimate)
+	}
+	if tb := timeboxMeta(t, time.Now()); tb != "" {
+		meta = append(meta, tb)
 	}
 	if t.AssignedTo != nil {
 		meta = append(meta, "assigned to "+a.name(*t.AssignedTo))
@@ -1007,7 +1032,7 @@ func (v *commentView) help() string { return editHelp() }
 func (v *commentView) typing() bool { return true }
 
 var (
-	types      = []string{"task", "bug", "feature"}
+	types      = []string{"task", "bug", "feature", "spike"}
 	priorities = []string{"low", "medium", "high", "urgent"}
 )
 
