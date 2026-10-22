@@ -1196,21 +1196,23 @@ var (
 )
 
 // formView creates a ticket (in a column, or a project's backlog) or edits one: title, type,
-// priority, estimate (on boards that use them) and description. It works like vim: typing in the title
-// or description is insert mode, and esc leaves it. Out of insert mode, j/k or tab move between
-// fields, i or enter edits one, h/l change a choice, q cancels (twice once something's typed), and
-// ctrl+s saves from anywhere.
+// priority, estimate (on boards that use them), an optional spike timebox, and description. It works
+// like vim: typing in the title or description is insert mode, and esc leaves it. Out of insert mode,
+// j/k or tab move between fields, i or enter edits one, h/l change a choice, q cancels (twice once
+// something's typed), and ctrl+s saves from anywhere.
 type formView struct {
 	editing                *Ticket
 	project, column, scale string
 	title                  textinput.Model
 	description            vimArea
 	kind, prio, estimate   int // indexes into types, priorities and the scale (-1: not estimated)
+	timeboxDays            int // -1: not set; otherwise 0–60
+	timeboxHours           int // -1: not set; otherwise 0–23
 	field                  int
 	typingTitle            bool // insert mode in the title
 	pendingQ               bool // q (esc with standard keys) pressed once with something typed: again discards it
 	cmd                    cmdLine
-	before                 string // the title and description as they started, to tell if anything changed
+	before                 string // the full form state as it started, to tell if anything changed
 }
 
 const (
@@ -1218,11 +1220,13 @@ const (
 	fieldType
 	fieldPriority
 	fieldEstimate
+	fieldTimeboxDays
+	fieldTimeboxHours
 	fieldDescription
 )
 
 func newForm(t *Ticket, project, column, scale string) *formView {
-	f := &formView{editing: t, project: project, column: column, scale: scale, prio: 1, estimate: -1, typingTitle: true}
+	f := &formView{editing: t, project: project, column: column, scale: scale, prio: 1, estimate: -1, timeboxDays: -1, timeboxHours: -1, typingTitle: true}
 	f.title = textinput.New()
 	f.title.Placeholder = "Title"
 	f.title.CharLimit = 200
@@ -1235,8 +1239,14 @@ func newForm(t *Ticket, project, column, scale string) *formView {
 		if t.Estimate != nil {
 			f.estimate = indexOf(api.Scales[scale], *t.Estimate)
 		}
+		if t.TimeboxDays != nil {
+			f.timeboxDays = *t.TimeboxDays
+		}
+		if t.TimeboxHours != nil {
+			f.timeboxHours = *t.TimeboxHours
+		}
 	}
-	f.before = f.title.Value() + "\x00" + f.description.Value()
+	f.before = f.snapshot()
 	f.description.unsaved = f.changed // :q in the description weighs the whole form, title too
 	f.title.Focus()
 	return f
@@ -1259,10 +1269,18 @@ func (f *formView) load(a *app) tea.Cmd {
 }
 
 func (f *formView) fields() []int {
-	if api.Scales[f.scale] == nil {
-		return []int{fieldTitle, fieldType, fieldPriority, fieldDescription}
+	fields := []int{fieldTitle, fieldType, fieldPriority}
+	if api.Scales[f.scale] != nil {
+		fields = append(fields, fieldEstimate)
 	}
-	return []int{fieldTitle, fieldType, fieldPriority, fieldEstimate, fieldDescription}
+	if types[f.kind] == "spike" {
+		fields = append(fields, fieldTimeboxDays, fieldTimeboxHours)
+	}
+	return append(fields, fieldDescription)
+}
+
+func (f *formView) snapshot() string {
+	return fmt.Sprintf("%s\x00%s\x00%d\x00%d\x00%d\x00%d\x00%d", f.title.Value(), f.description.Value(), f.kind, f.prio, f.estimate, f.timeboxDays, f.timeboxHours)
 }
 
 // focus moves d fields along. typing: start typing in a text field (tab), or not (j/k).
@@ -1282,7 +1300,7 @@ func (f *formView) focus(d int, typing bool) {
 	}
 }
 
-func (f *formView) changed() bool { return f.title.Value()+"\x00"+f.description.Value() != f.before }
+func (f *formView) changed() bool { return f.snapshot() != f.before }
 
 // input is what saving sends, or why it can't yet.
 func (f *formView) input() (TicketInput, string) {
@@ -1300,6 +1318,15 @@ func (f *formView) input() (TicketInput, string) {
 		} else {
 			in.Estimate = &values[f.estimate]
 		}
+	}
+	// Send a pair for spikes and when editing a spike into another type. Zero/zero means no timebox;
+	// omitting fields for ordinary tickets preserves the API's unchanged semantics.
+	if types[f.kind] == "spike" || (f.editing != nil && f.editing.Type == "spike") {
+		days, hours := max(f.timeboxDays, 0), max(f.timeboxHours, 0)
+		if types[f.kind] != "spike" {
+			days, hours = 0, 0
+		}
+		in.TimeboxDays, in.TimeboxHours = &days, &hours
 	}
 	return in, ""
 }
@@ -1420,13 +1447,27 @@ func (f *formView) choose(key string) {
 	}
 	switch f.field {
 	case fieldType:
+		oldType := types[f.kind]
 		f.kind = (f.kind + d + len(types)) % len(types)
+		if oldType == "spike" && types[f.kind] != "spike" {
+			f.timeboxDays, f.timeboxHours = -1, -1
+		}
 	case fieldPriority:
 		f.prio = (f.prio + d + len(priorities)) % len(priorities)
 	case fieldEstimate:
 		n := len(api.Scales[f.scale]) + 1 // and "not estimated" (-1)
 		f.estimate = (f.estimate+1+d+n)%n - 1
+	case fieldTimeboxDays:
+		f.timeboxDays = cycleOptional(f.timeboxDays, 60, d)
+	case fieldTimeboxHours:
+		f.timeboxHours = cycleOptional(f.timeboxHours, 23, d)
 	}
+}
+
+// cycleOptional moves between "not set" (-1) and the integer range 0..max.
+func cycleOptional(value, maxValue, direction int) int {
+	count := maxValue + 2 // the integer values plus "not set"
+	return (value+1+direction+count)%count - 1
 }
 
 // standardKey is the form with standard keys (keys = standard): no modes, typing goes into the
@@ -1500,6 +1541,23 @@ func (f *formView) render(a *app) string {
 	b.WriteString(label(fieldPriority, "Priority") + "  " + choice(fieldPriority, priorities[f.prio]) + "\n")
 	if api.Scales[f.scale] != nil {
 		b.WriteString(label(fieldEstimate, "Estimate") + "  " + choice(fieldEstimate, est) + "\n")
+	}
+	if types[f.kind] == "spike" {
+		days, hours := "not set", "not set"
+		if f.timeboxDays >= 0 {
+			days = fmt.Sprintf("%d days", f.timeboxDays)
+			if f.timeboxDays == 1 {
+				days = "1 day"
+			}
+		}
+		if f.timeboxHours >= 0 {
+			hours = fmt.Sprintf("%d hours", f.timeboxHours)
+			if f.timeboxHours == 1 {
+				hours = "1 hour"
+			}
+		}
+		b.WriteString(label(fieldTimeboxDays, "Timebox days") + "  " + choice(fieldTimeboxDays, days) + "\n")
+		b.WriteString(label(fieldTimeboxHours, "Timebox hours") + "  " + choice(fieldTimeboxHours, hours) + "\n")
 	}
 	b.WriteString("\n" + label(fieldDescription, "Description") + "\n" + f.description.View() + "\n" + f.mode() + "\n")
 	return b.String()
