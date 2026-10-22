@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/tracklines/tui/internal/api"
 	"net/http"
 	"net/http/httptest"
@@ -96,6 +97,10 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 			return
 		case p == "/api/tickets/t1", p == "/api/tickets/t2":
 			out = ticket(strings.TrimPrefix(p, "/api/tickets/"))
+		case p == "/api/tickets/t1/attachments":
+			out = []map[string]any{{"id": "f1", "name": "shot.png", "url": "https://x.ufs.sh/f/shot", "size": 2048, "content_type": "image/png", "created_by": "user_1"}}
+		case strings.HasSuffix(p, "/attachments"):
+			out = []any{}
 		case strings.HasSuffix(p, "/comments"):
 			out = []map[string]any{{"id": "m1", "body": "on it", "author": "user_1", "created_at": "2026-10-20T08:00:00Z"}}
 		case p == "/api/boards/b1":
@@ -979,4 +984,55 @@ func TestSubTicketsAndParent(t *testing.T) {
 	expect(t, a, "parent: Fix login", "p parent")
 	press(a, "p")
 	expect(t, a, "TL-1", "Fix login", "Login fails")
+}
+
+// TL-522: a ticket lists its files; tab picks one and o (or enter) opens it in the system's viewer.
+func TestAttachmentsOpenInTheSystemViewer(t *testing.T) {
+	a, _ := start(t)
+	var opened []string
+	fail := false
+	real := openFile
+	openFile = func(url string) error {
+		if fail {
+			return errors.New("no viewer")
+		}
+		opened = append(opened, url)
+		return nil
+	}
+	t.Cleanup(func() { openFile = real })
+
+	a.stack = append(a.stack, &ticketView{id: "t1"})
+	pump(a, a.top().load(a), 0)
+	expect(t, a, "Attachments (1)", "shot.png · 2.0 KB · Sam Doe", "tab pick file · o open")
+	press(a, "o") // nothing picked: nothing opens
+	if len(opened) != 0 {
+		t.Fatalf("opened without a pick: %v", opened)
+	}
+	press(a, "tab", "o")
+	if len(opened) != 1 || opened[0] != "https://x.ufs.sh/f/shot" {
+		t.Fatalf("opened %v", opened)
+	}
+	expect(t, a, "Opened shot.png.")
+	press(a, "enter")
+	if len(opened) != 2 {
+		t.Fatalf("enter didn't open the picked file: %v", opened)
+	}
+	fail = true
+	press(a, "o")
+	expect(t, a, "Couldn’t open shot.png: no viewer")
+
+	a.stack = append(a.stack, &ticketView{id: "t2"})
+	pump(a, a.top().load(a), 0)
+	expect(t, a, "TL-2")
+	if strings.Contains(a.View(), "Attachments") {
+		t.Fatalf("a ticket without files shows the section:\n%s", a.View())
+	}
+}
+
+func TestFileSize(t *testing.T) {
+	for n, want := range map[int64]string{512: "512 B", 1536: "1.5 KB", 2 * 1024 * 1024: "2.0 MB"} {
+		if got := fileSize(n); got != want {
+			t.Fatalf("fileSize(%d) = %q, want %q", n, got, want)
+		}
+	}
 }

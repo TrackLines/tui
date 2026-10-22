@@ -53,7 +53,7 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most u
 | Label filter | `j`/`k` · `space` toggle · `c` clear · `enter` apply · `esc` cancel |
 | Projects | `j`/`k` · `enter` opens a project: its boards, then its backlog |
 | Board | `h`/`l` column · `j`/`k` ticket · `enter` open · `H`/`L` move the ticket a column left/right · `n` new ticket in this column · `r` reload |
-| Ticket | `j`/`k` scroll · `e` edit · `m` move to a column · `c` comment · `a` assign to you (again: unassign) · `tab` pick a sub-ticket, `enter` open it · `p` open the parent · `r` reload |
+| Ticket | `j`/`k` scroll · `e` edit · `m` move to a column · `c` comment · `a` assign to you (again: unassign) · `tab` pick a sub-ticket or file, `enter` open it · `o` open a picked file in your system's viewer (`xdg-open`; `open` on macOS) · `p` open the parent · `r` reload |
 | New / edit ticket | Typing is insert mode; `esc` leaves it. Then `tab` or `j`/`k` field · `i`/`enter` edit · `h`/`l` change type, priority, estimate · `q` cancel · `ctrl+s` save (any time) |
 | Board / project | `f` follows its standup / refinement, when one's running (the banner says so) |
 | Following | it moves with the host: who's here, whose turn, the ticket they have open · `esc`/`q` leave |

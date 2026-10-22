@@ -249,6 +249,23 @@ func (c *Client) Comments(ctx context.Context, ticket string) ([]Comment, error)
 	return out, err
 }
 
+// Attachment is a file on a ticket (uploaded in the web app); URL is where it's served.
+type Attachment struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	URL         string `json:"url"`
+	Size        int64  `json:"size"`
+	ContentType string `json:"content_type"`
+	CreatedBy   string `json:"created_by"`
+}
+
+// Attachments are a ticket's files (TL-522).
+func (c *Client) Attachments(ctx context.Context, ticket string) ([]Attachment, error) {
+	var out []Attachment
+	err := c.do(ctx, http.MethodGet, "/tickets/"+url.PathEscape(ticket)+"/attachments", nil, &out)
+	return out, err
+}
+
 func (c *Client) Comment(ctx context.Context, ticket, body string) error {
 	return c.do(ctx, http.MethodPost, "/tickets/"+url.PathEscape(ticket)+"/comments", map[string]string{"body": body}, nil)
 }

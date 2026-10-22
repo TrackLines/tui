@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os/exec"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -732,13 +734,30 @@ type ticketView struct {
 	id       string
 	ticket   *Ticket
 	comments []Comment
+	files    []Attachment
 	view     viewport.Model
-	sel      int // picked sub-ticket, 1-based; 0 = none (TL-514)
+	sel      int // picked row, 1-based over sub-tickets then files; 0 = none (TL-514, TL-522)
 }
 
 type ticketData struct {
 	t        Ticket
 	comments []Comment
+	files    []Attachment
+}
+
+// openFile hands a file's URL to the system's viewer (xdg-open, or open on macOS) and doesn't wait
+// for it, so the TUI keeps running (TL-522). A variable so tests can see what would open.
+var openFile = func(url string) error {
+	opener := "xdg-open"
+	if runtime.GOOS == "darwin" {
+		opener = "open"
+	}
+	cmd := exec.Command(opener, url)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go cmd.Wait() //nolint:errcheck // reaped, nothing to report: the viewer is on its own now
+	return nil
 }
 
 func (v *ticketView) load(a *app) tea.Cmd {
@@ -748,7 +767,11 @@ func (v *ticketView) load(a *app) tea.Cmd {
 			return nil, err
 		}
 		cs, err := a.api.Comments(ctx, v.id)
-		return ticketData{t, cs}, err
+		if err != nil {
+			return nil, err
+		}
+		files, _ := a.api.Attachments(ctx, v.id) // ponytail: the ticket still shows if its files can't load
+		return ticketData{t, cs, files}, nil
 	})
 }
 
@@ -756,7 +779,7 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	switch msg := msg.(type) {
 	case loadedMsg:
 		if d, isTicket := msg.data.(ticketData); isTicket && msg.tag == "ticket:"+v.id {
-			v.ticket, v.comments = &d.t, d.comments
+			v.ticket, v.comments, v.files = &d.t, d.comments, d.files
 			v.view = viewport.New(a.width, a.rows())
 			v.view.SetContent(v.detail(a))
 			return v, v.timeboxTickCmd() // live countdown while this spike is In Progress (TL-512)
@@ -819,8 +842,8 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		case "r":
 			a.loading = true
 			return v, v.load(a)
-		case "tab", "shift+tab": // pick a sub-ticket; enter opens it (TL-514)
-			if n := len(t.Children); n > 0 {
+		case "tab", "shift+tab": // pick a sub-ticket or file; enter opens it (TL-514, TL-522)
+			if n := len(t.Children) + len(v.files); n > 0 {
 				if msg.String() == "tab" {
 					v.sel = v.sel%n + 1
 				} else if v.sel <= 1 {
@@ -830,9 +853,17 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 				}
 			}
 			return v, nil
-		case "enter":
-			if v.sel > 0 && v.sel <= len(t.Children) {
+		case "enter", "o":
+			if k := msg.String(); k == "enter" && v.sel > 0 && v.sel <= len(t.Children) {
 				return v, msgOf(pushMsg{&ticketView{id: t.Children[v.sel-1].ID}})
+			}
+			if i := v.sel - len(t.Children) - 1; i >= 0 && i < len(v.files) {
+				f := v.files[i]
+				if err := openFile(f.URL); err != nil {
+					a.status = warn.Render("Couldn’t open " + f.Name + ": " + err.Error())
+				} else {
+					a.status = ok.Render("Opened " + f.Name + ".")
+				}
 			}
 			return v, nil
 		case "p":
@@ -899,6 +930,9 @@ func (v *ticketView) detail(a *app) string {
 	if len(t.Children) > 0 {
 		b.WriteString(v.subTickets(a) + "\n")
 	}
+	if len(v.files) > 0 {
+		b.WriteString(v.attachments(a) + "\n")
+	}
 	b.WriteString(accent.Render(fmt.Sprintf("Comments (%d)", len(v.comments))) + "\n")
 	for _, c := range v.comments {
 		fmt.Fprintf(&b, "\n%s %s\n%s\n", bold.Render(a.name(c.Author)), muted.Render(day(c.CreatedAt)), wrap(c.Body, a.width))
@@ -949,6 +983,31 @@ func (v *ticketView) subTickets(a *app) string {
 	return b.String()
 }
 
+// attachments lists the ticket's files (TL-522), picked after the sub-tickets; o opens one.
+func (v *ticketView) attachments(a *app) string {
+	var b strings.Builder
+	b.WriteString(accent.Render(fmt.Sprintf("Attachments (%d)", len(v.files))) + "\n")
+	for i, f := range v.files {
+		name := f.Name
+		if len(v.ticket.Children)+i+1 == v.sel {
+			name = picked.Render(name)
+		}
+		b.WriteString("  " + name + muted.Render(" · "+fileSize(f.Size)+" · "+a.name(f.CreatedBy)) + "\n")
+	}
+	return b.String()
+}
+
+// fileSize reads like the web app's: 512 B, 1.5 KB, 2.0 MB.
+func fileSize(n int64) string {
+	switch {
+	case n < 1024:
+		return fmt.Sprintf("%d B", n)
+	case n < 1024*1024:
+		return fmt.Sprintf("%.1f KB", float64(n)/1024)
+	}
+	return fmt.Sprintf("%.1f MB", float64(n)/1024/1024)
+}
+
 func (v *ticketView) render(a *app) string {
 	if v.ticket == nil {
 		return ""
@@ -975,8 +1034,13 @@ func (v *ticketView) treeHelp() string {
 		return ""
 	}
 	h := ""
-	if len(v.ticket.Children) > 0 {
+	switch kids, files := len(v.ticket.Children), len(v.files); {
+	case kids > 0 && files > 0:
+		h += "tab pick sub-ticket/file · enter open · "
+	case kids > 0:
 		h += "tab pick sub-ticket · enter open · "
+	case files > 0:
+		h += "tab pick file · o open · "
 	}
 	if v.ticket.Parent != nil {
 		h += "p parent · "
