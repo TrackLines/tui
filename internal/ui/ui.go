@@ -260,7 +260,10 @@ func (a *app) View() string {
 	if a.latest != nil {
 		head = append(head, ok.Render(" "+a.latest.Tag+" is out · ? to update"))
 	}
-	return strings.Join(head, " ") + "\n\n" + a.top().render(a) + "\n" + foot
+	body := strings.Join(head, " ") + "\n\n" + strings.TrimRight(a.top().render(a), "\n")
+	// the footer sits on the window's last lines, not wherever the screen happens to end (TL-523)
+	gap := max(1, a.height-lipgloss.Height(body)-lipgloss.Height(foot)+1)
+	return body + strings.Repeat("\n", gap) + foot
 }
 
 // quit leaves any session being followed first (briefly: quitting mustn't hang), then quits.

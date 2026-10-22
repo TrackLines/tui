@@ -1036,3 +1036,31 @@ func TestFileSize(t *testing.T) {
 		}
 	}
 }
+
+// TL-523: the footer is on the window's last line whatever the screen's height, and the comment box
+// fills the screen and follows the window.
+func TestFooterPinnedAndCommentBoxFills(t *testing.T) {
+	a, _ := start(t) // 120×40
+	lastLine := func() (int, string) {
+		lines := strings.Split(a.View(), "\n")
+		return len(lines), lines[len(lines)-1]
+	}
+	n, foot := lastLine()
+	if n != 40 || !strings.Contains(foot, a.top().help()) {
+		t.Fatalf("home: %d lines, last %q", n, foot)
+	}
+	a.stack = append(a.stack, newComment(Ticket{ID: "t1", Key: "TL-1", Title: "Fix login"}))
+	pump(a, a.top().load(a), 0)
+	n, foot = lastLine()
+	if n != 40 || !strings.Contains(foot, "save") {
+		t.Fatalf("comment: %d lines, last %q", n, foot)
+	}
+	c := a.top().(*commentView)
+	if c.input.Height() != a.rows()-3 || c.input.Height() <= 6 {
+		t.Fatalf("comment box %d high, want %d", c.input.Height(), a.rows()-3)
+	}
+	a.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	if n, _ = lastLine(); n != 30 || c.input.Height() != a.rows()-3 {
+		t.Fatalf("after resize: %d lines, box %d high", n, c.input.Height())
+	}
+}
