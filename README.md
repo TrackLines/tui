@@ -54,7 +54,7 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most u
 | Projects | `j`/`k` · `enter` opens a project: its boards, then its backlog |
 | Board | `h`/`l` column · `j`/`k` ticket · `enter` open · `H`/`L` move the ticket a column left/right · `n` new ticket in this column · `r` reload |
 | Ticket | `j`/`k` scroll · `e` edit · `m` move to a column · `c` comment · `a` assign to you (again: unassign) · `tab` pick a sub-ticket or file, `enter` open it · `o` open a picked file in your system's viewer (`xdg-open`; `open` on macOS) · `p` open the parent · `r` reload |
-| New / edit ticket | Typing is insert mode; `esc` leaves it. Then `tab` or `j`/`k` field · `i`/`enter` edit · `h`/`l` change type, priority, estimate · `q` cancel · `ctrl+s` save (any time) |
+| New / edit ticket | Typing is insert mode; `esc` leaves it. Then `tab` or `j`/`k` field · `i`/`enter` edit · `h`/`l` change type, priority, estimate, and spike timebox · `q` cancel · `ctrl+s` save (any time) |
 | Board / project | `f` follows its standup / refinement, when one's running (the banner says so) |
 | Following | it moves with the host: who's here, whose turn, the ticket they have open · `esc`/`q` leave |
 | Comment | Like vim: `esc` normal mode · `i a I A o O` insert · `h j k l w b 0 $ g G` move · `x`, `dd` delete · `:w`, `:wq`, `enter` or `ctrl+s` send · `:q`, `q` cancel (refused/twice over text) · `:q!` discard. With `keys = standard`: `ctrl+s` send, `esc` cancel |
@@ -64,6 +64,7 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most u
 - **Mentions**, under My work, are tickets that @mention you, leaving out finished ones.
 - A search takes words or a ticket key such as `TL-123`.
 - Boards that use estimates ask for one when you create a ticket there.
+- Choose `spike` to set an optional timebox in days (0–60) and hours (0–23); `not set` is available for either. Changing to another type clears the timebox.
 - Backlog tickets are put on a board in the web app, where the sprint capacity checks are.
 
 ## Config

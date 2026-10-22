@@ -81,11 +81,13 @@ type EpicProgress struct {
 
 // TicketInput is what creating or editing a ticket sends. Estimate is on the board's scale.
 type TicketInput struct {
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	Type        string  `json:"type"`
-	Priority    string  `json:"priority"`
-	Estimate    *string `json:"estimate,omitempty"`
+	Title        string  `json:"title"`
+	Description  string  `json:"description"`
+	Type         string  `json:"type"`
+	Priority     string  `json:"priority"`
+	Estimate     *string `json:"estimate,omitempty"`
+	TimeboxDays  *int    `json:"timebox_days,omitempty"`
+	TimeboxHours *int    `json:"timebox_hours,omitempty"`
 }
 
 type Project struct {
