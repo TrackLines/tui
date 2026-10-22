@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -37,4 +38,19 @@ func TestOnlyOurFailuresAreReported(t *testing.T) {
 	}
 	c.OnFailure = nil // nobody listening: no panic
 	c.MyWork(t.Context())
+}
+
+// TL-514: the tree fields decode from the single-ticket response.
+func TestTicketTreeDecodes(t *testing.T) {
+	var got Ticket
+	err := json.Unmarshal([]byte(`{"id":"t1","parent":{"id":"p","title":"Parent","done":false},
+		"children":[{"id":"c","key":"TL-2","title":"Child","type":"bug","done":true,"assigned_to":null,"estimate":"3","board_name":null}],
+		"epic":{"done":1,"total":2,"points":5.5,"unestimated":1}}`), &got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Parent == nil || got.Parent.ID != "p" || len(got.Children) != 1 || *got.Children[0].Key != "TL-2" || !got.Children[0].Done ||
+		got.Children[0].BoardName != nil || got.Epic == nil || got.Epic.Points != 5.5 || got.Epic.Unestimated != 1 {
+		t.Fatalf("decoded %+v", got)
+	}
 }

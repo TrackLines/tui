@@ -45,6 +45,38 @@ type Ticket struct {
 	TimeboxHours *int    `json:"timebox_hours"`
 	StartedAt    *string `json:"started_at"` // first move into In Progress; drives the timebox countdown (TL-506)
 	DoneAt       *string `json:"done_at"`
+	// where it sits in the tree (TL-514): the ticket it's a sub-ticket of, its own sub-tickets, and
+	// an epic's progress over them; only the single-ticket endpoint fills these
+	Parent   *Parent       `json:"parent"`
+	Children []Child       `json:"children"`
+	Epic     *EpicProgress `json:"epic"`
+}
+
+// Parent is the ticket a sub-ticket belongs to (the API gives no key for it).
+type Parent struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Done  bool   `json:"done"`
+}
+
+// Child is one sub-ticket, as a parent or epic lists it.
+type Child struct {
+	ID         string  `json:"id"`
+	Key        *string `json:"key"`
+	Title      string  `json:"title"`
+	Type       string  `json:"type"`
+	Done       bool    `json:"done"`
+	AssignedTo *string `json:"assigned_to"`
+	Estimate   *string `json:"estimate"`
+	BoardName  *string `json:"board_name"` // nil: in the backlog
+}
+
+// EpicProgress is an epic's progress over its direct sub-tickets.
+type EpicProgress struct {
+	Done        int     `json:"done"`
+	Total       int     `json:"total"`
+	Points      float64 `json:"points"`
+	Unestimated int     `json:"unestimated"`
 }
 
 // TicketInput is what creating or editing a ticket sends. Estimate is on the board's scale.
