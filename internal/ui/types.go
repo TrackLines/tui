@@ -16,6 +16,7 @@ type (
 	Column      = api.Column
 	Board       = api.Board
 	Comment     = api.Comment
+	Attachment  = api.Attachment
 	APIError    = api.APIError
 	Label       = api.Label
 	BacklogPage = api.BacklogPage
