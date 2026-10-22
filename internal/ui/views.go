@@ -827,6 +827,9 @@ func (v *ticketView) detail(a *app) string {
 	if t.Estimate != nil {
 		meta = append(meta, "estimate "+*t.Estimate)
 	}
+	if tb := timeboxLabel(t.TimeboxDays, t.TimeboxHours); tb != "" {
+		meta = append(meta, "timebox "+tb)
+	}
 	if t.AssignedTo != nil {
 		meta = append(meta, "assigned to "+a.name(*t.AssignedTo))
 	} else {
@@ -1007,7 +1010,7 @@ func (v *commentView) help() string { return editHelp() }
 func (v *commentView) typing() bool { return true }
 
 var (
-	types      = []string{"task", "bug", "feature"}
+	types      = []string{"task", "bug", "feature", "spike"}
 	priorities = []string{"low", "medium", "high", "urgent"}
 )
 

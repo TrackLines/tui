@@ -293,6 +293,18 @@ func priority(p string) string {
 	return p
 }
 
+// timeboxLabel renders a spike's timebox as "1d 4h" (TL-502); "" when it isn't set.
+func timeboxLabel(days, hours *int) string {
+	var parts []string
+	if days != nil && *days > 0 {
+		parts = append(parts, fmt.Sprintf("%dd", *days))
+	}
+	if hours != nil && *hours > 0 {
+		parts = append(parts, fmt.Sprintf("%dh", *hours))
+	}
+	return strings.Join(parts, " ")
+}
+
 // where is "Board · Column", or "Backlog".
 func where(t Ticket) string {
 	if t.BoardName == nil {

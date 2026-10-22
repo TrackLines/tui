@@ -40,6 +40,9 @@ type Ticket struct {
 	AssignedTo  *string  `json:"assigned_to"`
 	Labels      []string `json:"labels"`
 	ProjectID   string   `json:"project_id"`
+	// a spike's timebox (TL-502): days + hours as entered; nil when not a spike or not yet timed
+	TimeboxDays  *int `json:"timebox_days"`
+	TimeboxHours *int `json:"timebox_hours"`
 }
 
 // TicketInput is what creating or editing a ticket sends. Estimate is on the board's scale.

@@ -392,6 +392,30 @@ func TestHelpers(t *testing.T) {
 	}
 }
 
+func TestSpikeTimebox(t *testing.T) {
+	// spike is a selectable type in the create/edit form (TL-502)
+	found := false
+	for _, ty := range types {
+		if ty == "spike" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("types should offer spike: %v", types)
+	}
+	d, h := 1, 4
+	if got := timeboxLabel(&d, &h); got != "1d 4h" {
+		t.Fatalf("timeboxLabel(1,4) = %q", got)
+	}
+	zero := 0
+	if got := timeboxLabel(&d, &zero); got != "1d" {
+		t.Fatalf("timeboxLabel(1,0) = %q", got)
+	}
+	if got := timeboxLabel(nil, nil); got != "" {
+		t.Fatalf("timeboxLabel(nil,nil) = %q, want empty", got)
+	}
+}
+
 func TestBacklogSortAndLabels(t *testing.T) {
 	a, calls := start(t)
 	press(a, "2", "enter", "j", "enter") // TrackLines → Backlog
