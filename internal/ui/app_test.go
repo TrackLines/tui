@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"github.com/tracklines/tui/internal/api"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -945,4 +946,37 @@ func TestScrollingATitle(t *testing.T) {
 	if v.hscroll != v.maxScroll() {
 		t.Fatalf("slid past the end: %d of %d", v.hscroll, v.maxScroll())
 	}
+}
+
+// TL-514: a parent or epic lists its sub-tickets (with the epic's progress), tab picks one and enter
+// opens it, esc comes back; a sub-ticket names its parent and p opens it.
+func TestSubTicketsAndParent(t *testing.T) {
+	a, _ := start(t)
+	key, board, me := "TL-2", "Web", "user_1"
+	epic := Ticket{ID: "t1", Key: "TL-1", Title: "Fix login", Type: "epic",
+		Children: []api.Child{
+			{ID: "t2", Key: &key, Title: "Idea", Type: "task", Done: true, AssignedTo: &me, BoardName: &board},
+			{ID: "t3", Title: "Later", Type: "bug"},
+		},
+		Epic: &api.EpicProgress{Done: 1, Total: 2, Points: 3, Unestimated: 1}}
+	a.stack = append(a.stack, &ticketView{id: "t1"})
+	pump(a, msgOf(loadedMsg{"ticket:t1", ticketData{t: epic}, nil}), 0)
+	expect(t, a, "Sub-tickets 1/2 done · 3 pts · 1 unestimated", "✓ TL-2  Idea", "task · Sam Doe · Web", "Later", "bug · unassigned · backlog", "tab pick sub-ticket")
+
+	press(a, "enter") // nothing picked yet: stays put
+	expect(t, a, "Sub-tickets")
+	press(a, "tab", "enter")
+	expect(t, a, "TL-2", "Idea")
+	if strings.Contains(a.View(), "Sub-tickets") {
+		t.Fatalf("a ticket without sub-tickets shows the section:\n%s", a.View())
+	}
+	press(a, "esc")
+	expect(t, a, "TL-1  Fix login") // back on the parent (reloaded fresh)
+
+	child := Ticket{ID: "t2", Key: "TL-2", Title: "Idea", Parent: &api.Parent{ID: "t1", Title: "Fix login"}}
+	a.stack = append(a.stack, &ticketView{id: "t2"})
+	pump(a, msgOf(loadedMsg{"ticket:t2", ticketData{t: child}, nil}), 0)
+	expect(t, a, "parent: Fix login", "p parent")
+	press(a, "p")
+	expect(t, a, "TL-1", "Fix login", "Login fails")
 }

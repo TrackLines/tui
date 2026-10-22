@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -732,6 +733,7 @@ type ticketView struct {
 	ticket   *Ticket
 	comments []Comment
 	view     viewport.Model
+	sel      int // picked sub-ticket, 1-based; 0 = none (TL-514)
 }
 
 type ticketData struct {
@@ -817,6 +819,27 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		case "r":
 			a.loading = true
 			return v, v.load(a)
+		case "tab", "shift+tab": // pick a sub-ticket; enter opens it (TL-514)
+			if n := len(t.Children); n > 0 {
+				if msg.String() == "tab" {
+					v.sel = v.sel%n + 1
+				} else if v.sel <= 1 {
+					v.sel = n
+				} else {
+					v.sel--
+				}
+			}
+			return v, nil
+		case "enter":
+			if v.sel > 0 && v.sel <= len(t.Children) {
+				return v, msgOf(pushMsg{&ticketView{id: t.Children[v.sel-1].ID}})
+			}
+			return v, nil
+		case "p":
+			if t.Parent != nil {
+				return v, msgOf(pushMsg{&ticketView{id: t.Parent.ID}})
+			}
+			return v, nil
 		}
 		var cmd tea.Cmd
 		v.view, cmd = v.view.Update(msg)
@@ -863,15 +886,65 @@ func (v *ticketView) detail(a *app) string {
 	if t.Done {
 		meta = append(meta, ok.Render("done"))
 	}
-	b.WriteString(muted.Render(strings.Join(meta, " · ")) + "\n\n")
+	b.WriteString(muted.Render(strings.Join(meta, " · ")) + "\n")
+	if t.Parent != nil {
+		b.WriteString(muted.Render("parent: ") + t.Parent.Title + muted.Render(" (p to open)") + "\n")
+	}
+	b.WriteString("\n")
 	if d := strings.TrimSpace(t.Description); d != "" {
 		b.WriteString(wrap(d, a.width) + "\n\n")
 	} else {
 		b.WriteString(muted.Render("No description.") + "\n\n")
 	}
+	if len(t.Children) > 0 {
+		b.WriteString(v.subTickets(a) + "\n")
+	}
 	b.WriteString(accent.Render(fmt.Sprintf("Comments (%d)", len(v.comments))) + "\n")
 	for _, c := range v.comments {
 		fmt.Fprintf(&b, "\n%s %s\n%s\n", bold.Render(a.name(c.Author)), muted.Render(day(c.CreatedAt)), wrap(c.Body, a.width))
+	}
+	return b.String()
+}
+
+// subTickets lists the sub-tickets (TL-514), the picked one highlighted; an epic's header carries
+// its progress: "Sub-tickets 3/7 done · 13 pts · 2 unestimated".
+func (v *ticketView) subTickets(a *app) string {
+	t := v.ticket
+	head := fmt.Sprintf("Sub-tickets (%d)", len(t.Children))
+	if e := t.Epic; e != nil {
+		parts := []string{fmt.Sprintf("%d/%d done", e.Done, e.Total)}
+		if e.Points > 0 {
+			parts = append(parts, strconv.FormatFloat(e.Points, 'f', -1, 64)+" pts")
+		}
+		if e.Unestimated > 0 {
+			parts = append(parts, fmt.Sprintf("%d unestimated", e.Unestimated))
+		}
+		head = "Sub-tickets " + strings.Join(parts, " · ")
+	}
+	var b strings.Builder
+	b.WriteString(accent.Render(head) + "\n")
+	for i, c := range t.Children {
+		mark := "  "
+		if c.Done {
+			mark = ok.Render("✓ ")
+		}
+		key := ""
+		if c.Key != nil {
+			key = *c.Key + "  "
+		}
+		where := "backlog"
+		if c.BoardName != nil {
+			where = *c.BoardName
+		}
+		who := "unassigned"
+		if c.AssignedTo != nil {
+			who = a.name(*c.AssignedTo)
+		}
+		row := key + c.Title
+		if i+1 == v.sel {
+			row = picked.Render(row)
+		}
+		b.WriteString(mark + row + muted.Render(" · "+c.Type+" · "+who+" · "+where) + "\n")
 	}
 	return b.String()
 }
@@ -887,13 +960,28 @@ func (v *ticketView) render(a *app) string {
 
 func (v *ticketView) help() string {
 	if v.ticket != nil && v.ticket.Done {
-		return "j/k scroll · e edit · m move · c comment · r reload · esc/q back"
+		return "j/k scroll · " + v.treeHelp() + "e edit · m move · c comment · r reload · esc/q back"
 	}
 	resolve := ""
 	if v.ticket != nil && v.ticket.BoardID == nil {
 		resolve = "x close/won’t do · "
 	}
-	return "j/k scroll · e edit · m move · c comment · a assign me / unassign · " + resolve + "r reload · esc/q back"
+	return "j/k scroll · " + v.treeHelp() + "e edit · m move · c comment · a assign me / unassign · " + resolve + "r reload · esc/q back"
+}
+
+// treeHelp is the sub-ticket/parent keys, when the ticket has either.
+func (v *ticketView) treeHelp() string {
+	if v.ticket == nil {
+		return ""
+	}
+	h := ""
+	if len(v.ticket.Children) > 0 {
+		h += "tab pick sub-ticket · enter open · "
+	}
+	if v.ticket.Parent != nil {
+		h += "p parent · "
+	}
+	return h
 }
 func (v *ticketView) typing() bool { return false }
 
