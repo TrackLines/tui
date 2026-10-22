@@ -416,6 +416,48 @@ func TestSpikeTimebox(t *testing.T) {
 	}
 }
 
+func TestTimeboxBusinessHours(t *testing.T) {
+	// 2026-01-05 is a Monday, -09 a Friday, -12 the next Monday (local, tz-independent).
+	at := func(day, hour int) time.Time { return time.Date(2026, 1, day, hour, 0, 0, 0, time.Local) }
+
+	if m := businessMinutesBetween(at(5, 10), at(5, 15)); m != 300 {
+		t.Fatalf("Mon 10–15 = %d, want 300", m)
+	}
+	if m := businessMinutesBetween(at(5, 8), at(5, 18)); m != 480 {
+		t.Fatalf("clamp to 09–17 = %d, want 480", m)
+	}
+	if m := businessMinutesBetween(at(9, 16), at(12, 10)); m != 120 {
+		t.Fatalf("Fri 16→Mon 10 (weekend skipped) = %d, want 120", m)
+	}
+	if m := businessMinutesBetween(at(10, 9), at(11, 17)); m != 0 {
+		t.Fatalf("all weekend = %d, want 0", m)
+	}
+	for in, want := range map[int]string{420: "7h", 90: "1h 30m", 480: "1d", 540: "1d 1h", 45: "45m"} {
+		if got := formatDuration(in); got != want {
+			t.Fatalf("formatDuration(%d) = %q, want %q", in, got, want)
+		}
+	}
+
+	ip := func(n int) *int { return &n }
+	sp := func(tm time.Time) *string { s := tm.Format(time.RFC3339); return &s }
+	spike := func(started *string, done *string) *Ticket {
+		return &Ticket{Type: "spike", TimeboxDays: ip(1), TimeboxHours: ip(0), StartedAt: started, DoneAt: done, Done: done != nil}
+	}
+	if got := timeboxMeta(spike(nil, nil), at(5, 10)); got != "timebox 1d" {
+		t.Fatalf("not started = %q", got)
+	}
+	if got := timeboxMeta(spike(sp(at(5, 9)), nil), at(5, 10)); got != "timebox 1d · 7h left" {
+		t.Fatalf("in progress within = %q", got)
+	}
+	over := &Ticket{Type: "spike", TimeboxDays: ip(0), TimeboxHours: ip(1), StartedAt: sp(at(5, 9))}
+	if got := timeboxMeta(over, at(5, 11)); got != "timebox 1h · over by 1h" {
+		t.Fatalf("over = %q", got)
+	}
+	if got := timeboxMeta(spike(sp(at(5, 9)), sp(at(5, 10))), at(5, 12)); got != "timebox 1d · within, 7h spare" {
+		t.Fatalf("done within = %q", got)
+	}
+}
+
 func TestBacklogSortAndLabels(t *testing.T) {
 	a, calls := start(t)
 	press(a, "2", "enter", "j", "enter") // TrackLines → Backlog

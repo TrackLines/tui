@@ -305,6 +305,106 @@ func timeboxLabel(days, hours *int) string {
 	return strings.Join(parts, " ")
 }
 
+// Business-hours timebox tracking (TL-506): same spec as the web helper (lib/timebox.ts). Mon–Fri
+// 09:00–17:00 in the local timezone, 8h per business day. ponytail: hard-coded; TL-510 makes it a setting.
+const (
+	workStartHour   = 9
+	workEndHour     = 17
+	workHoursPerDay = workEndHour - workStartHour // 8
+)
+
+func intp(p *int) int {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
+// businessMinutesBetween: minutes of [start, end] inside Mon–Fri 09:00–17:00 (in start's location).
+func businessMinutesBetween(start, end time.Time) int {
+	if !end.After(start) {
+		return 0
+	}
+	total := 0.0
+	day := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+	for i := 0; i < 4000 && !day.After(end); i++ {
+		if wd := day.Weekday(); wd >= time.Monday && wd <= time.Friday {
+			ws := time.Date(day.Year(), day.Month(), day.Day(), workStartHour, 0, 0, 0, day.Location())
+			we := time.Date(day.Year(), day.Month(), day.Day(), workEndHour, 0, 0, 0, day.Location())
+			os, oe := ws, we
+			if start.After(os) {
+				os = start
+			}
+			if end.Before(oe) {
+				oe = end
+			}
+			if oe.After(os) {
+				total += oe.Sub(os).Minutes()
+			}
+		}
+		day = day.AddDate(0, 0, 1)
+	}
+	return int(total + 0.5)
+}
+
+// timeboxMeta renders a spike's timebox for the detail meta line: "timebox 1d 4h", plus the live
+// business-hours state once In Progress ("· 3h left" / "· over by 1h" / "· within, 2h spare").
+func timeboxMeta(t *Ticket, now time.Time) string {
+	label := timeboxLabel(t.TimeboxDays, t.TimeboxHours)
+	if label == "" {
+		return ""
+	}
+	out := "timebox " + label
+	if t.StartedAt == nil { // not In Progress yet
+		return out
+	}
+	start, err := time.Parse(time.RFC3339, *t.StartedAt)
+	if err != nil {
+		return out
+	}
+	end := now
+	if t.DoneAt != nil {
+		if d, err := time.Parse(time.RFC3339, *t.DoneAt); err == nil {
+			end = d
+		}
+	}
+	budget := (intp(t.TimeboxDays)*workHoursPerDay + intp(t.TimeboxHours)) * 60
+	elapsed := businessMinutesBetween(start.Local(), end.Local())
+	remaining := budget - elapsed
+	switch {
+	case remaining < 0:
+		return out + " · over by " + formatDuration(-remaining)
+	case t.DoneAt != nil:
+		return out + " · within, " + formatDuration(remaining) + " spare"
+	default:
+		return out + " · " + formatDuration(remaining) + " left"
+	}
+}
+
+// formatDuration: business minutes as "2d 1h" / "3h" / "45m" (a day = 8 business hours).
+func formatDuration(mins int) string {
+	if mins < 0 {
+		mins = 0
+	}
+	d := mins / 60 / workHoursPerDay
+	h := (mins / 60) % workHoursPerDay
+	m := mins % 60
+	var parts []string
+	if d > 0 {
+		parts = append(parts, fmt.Sprintf("%dd", d))
+	}
+	if h > 0 {
+		parts = append(parts, fmt.Sprintf("%dh", h))
+	}
+	if m > 0 && d == 0 {
+		parts = append(parts, fmt.Sprintf("%dm", m))
+	}
+	if len(parts) == 0 {
+		return "0m"
+	}
+	return strings.Join(parts, " ")
+}
+
 // where is "Board · Column", or "Backlog".
 func where(t Ticket) string {
 	if t.BoardName == nil {
