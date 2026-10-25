@@ -49,9 +49,10 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most u
 |---|---|
 | My work | `tab` switches between My work and Mentions, below it |
 | Lists (My work, Mentions, search, backlog) | `j`/`k` move · `g`/`G` top/bottom · `h`/`l` slide the selected title along to read the rest (`0` start, `$` end) · `enter` open · `r` reload |
-| Backlog | also `n` new ticket · `s` sort (backlog order, newest, oldest) · `f` filter by labels |
+| Backlog | also `m` move the selected ticket to a board · `n` new ticket · `s` sort (backlog order, newest, oldest) · `f` filter by labels |
 | Label filter | `j`/`k` · `space` toggle · `c` clear · `enter` apply · `esc` cancel |
 | Projects | `j`/`k` · `enter` opens a project: its boards, then its backlog |
+| Project page | `j`/`k` select a board or Backlog · `enter` open · `B` (Shift+B) jump straight to Backlog |
 | Board | `h`/`l` column · `j`/`k` ticket · `enter` open · `H`/`L` move the ticket a column left/right · `n` new ticket in this column · `r` reload |
 | Ticket | `j`/`k` scroll · `e` edit · `m` move to a column · `c` comment · `a` assign to you (again: unassign) · `tab` pick a sub-ticket or file, `enter` open it · `o` open a picked file in your system's viewer (`xdg-open`; `open` on macOS) · `p` open the parent · `r` reload |
 | New / edit ticket | Typing is insert mode; `esc` leaves it. Then `tab` or `j`/`k` field · `i`/`enter` edit · `h`/`l` change type, priority, estimate, and spike timebox · `q` cancel · `ctrl+s` save (any time) |
