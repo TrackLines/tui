@@ -47,7 +47,7 @@ func TestLanguageChoice(t *testing.T) {
 var sources = []string{"../ui/*.go", "../../cmd/tracklines/*.go", "../update/*.go"}
 
 // prose looks like words for people: two words, or a capitalised word.
-var prose = regexp.MustCompile(`[A-Za-z]{2,}[ ,.:;’'/–-]+[A-Za-z]{2,}|^[A-Z][a-z]{2,}`)
+var prose = regexp.MustCompile(`[A-Za-z]{2,}[ ,.:;’'/–·-]+[A-Za-z]{2,}|^[A-Z][a-z]{2,}`)
 
 // notText are literals that look like prose but aren't shown, or are names that stay as they are.
 var notText = map[string]bool{

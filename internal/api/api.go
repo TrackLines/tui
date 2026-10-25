@@ -246,6 +246,25 @@ func (c *Client) Board(ctx context.Context, id string) (Board, error) {
 	return b, err
 }
 
+// HistoryEntry is one step in a ticket's life (TL-598): a stage it entered or skipped, by whom, when.
+type HistoryEntry struct {
+	At         string  `json:"at"`      // UTC, RFC 3339
+	Stage      string  `json:"stage"`   // backlog | column | resolved
+	Outcome    string  `json:"outcome"` // entered | skipped
+	BoardName  *string `json:"board_name"`
+	ColumnName *string `json:"column_name"`
+	Done       bool    `json:"done"`       // the board's last column
+	Resolution *string `json:"resolution"` // done | wont_do | duplicate
+	Actor      *string `json:"actor"`      // nil: the system did it
+}
+
+// History is a ticket's history, oldest first.
+func (c *Client) History(ctx context.Context, ticket string) ([]HistoryEntry, error) {
+	var out []HistoryEntry
+	err := c.do(ctx, http.MethodGet, "/tickets/"+url.PathEscape(ticket)+"/history", nil, &out)
+	return out, err
+}
+
 func (c *Client) Comments(ctx context.Context, ticket string) ([]Comment, error) {
 	var out []Comment
 	err := c.do(ctx, http.MethodGet, "/tickets/"+url.PathEscape(ticket)+"/comments", nil, &out)

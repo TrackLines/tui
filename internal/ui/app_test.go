@@ -29,6 +29,7 @@ var (
 	// apiDown: every change fails (503); replyLost: a comment is saved but its reply never arrives
 	// (502); ticketUpdated: TL-1's updated_at (TL-599)
 	apiDown, replyLost bool
+	historyFails       bool // TL-1's history can't be read (TL-598)
 	ticketUpdated      = "2026-10-25T10:00:00Z"
 )
 
@@ -131,6 +132,17 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 		case strings.HasPrefix(p, "/api/ticket-keys/"):
 			http.Error(w, "not found", http.StatusNotFound)
 			return
+		case p == "/api/tickets/t1/history" && historyFails:
+			http.Error(w, "history is down", http.StatusBadGateway)
+			return
+		case p == "/api/tickets/t1/history": // oldest first, as the API sends it
+			out = []map[string]any{
+				{"at": "2026-10-20T09:00:00Z", "stage": "backlog", "outcome": "entered", "actor": "user_2"},
+				{"at": "2026-10-21T09:00:00Z", "stage": "column", "outcome": "entered", "board_name": "Web", "column_name": "To do", "actor": "user_1"},
+				{"at": "2026-10-22T09:00:00Z", "stage": "resolved", "outcome": "entered", "resolution": "wont_do"},
+			}
+		case p == "/api/tickets/t2/history":
+			out = []any{}
 		case p == "/api/tickets/t1", p == "/api/tickets/t2":
 			out = ticket(strings.TrimPrefix(p, "/api/tickets/"))
 		case p == "/api/tickets/t1/attachments":
@@ -1364,4 +1376,30 @@ func TestDutch(t *testing.T) {
 	expect(t, a, "TL-1 bewerken", "Titel", "Prioriteit", "Schatting", "Beschrijving")
 	press(a, "esc", "q", "esc", "t", "TL-999", "enter") // an error
 	expect(t, a, "Er is geen ticket TL-999.", "Naar een ticket")
+}
+
+// h on a ticket shows its history, newest first, and esc goes back to the ticket (TL-598).
+func TestTicketHistory(t *testing.T) {
+	t.Cleanup(func() { historyFails = false })
+	a, _ := start(t)
+	press(a, "enter")
+	expect(t, a, "h history")
+	press(a, "h")
+	expect(t, a, "History of TL-1", "Resolved: won’t do", "by TrackLin.es", "Moved to Web · To do", "by Sam Doe", "Into the backlog", "by Alex Roe")
+	v := a.View()
+	if !(strings.Index(v, "Resolved") < strings.Index(v, "Moved to") && strings.Index(v, "Moved to") < strings.Index(v, "Into the backlog")) {
+		t.Fatalf("not newest first:\n%s", v)
+	}
+	press(a, "esc")
+	expect(t, a, "Fix login", "Login fails") // back on the ticket
+
+	historyFails = true
+	press(a, "h")
+	expect(t, a, "Couldn’t load the history.", "r to try again", "history is down")
+	historyFails = false
+	press(a, "r")
+	expect(t, a, "Moved to Web · To do")
+
+	press(a, "esc", "esc", "j", "enter", "h") // TL-2: nothing has happened to it yet
+	expect(t, a, "History of TL-2", "No history yet.")
 }
