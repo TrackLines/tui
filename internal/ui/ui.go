@@ -223,7 +223,11 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.status, a.loading = "", true
 				return a, tea.Batch(bye, a.top().load(a))
 			case "/":
-				return a, msgOf(pushMsg{newSearch()})
+				q := ""
+				if l, isList := a.top().(*listView); isList {
+					q = l.query
+				}
+				return a, msgOf(pushMsg{newSearch(q)})
 			case "?":
 				if _, already := a.top().(*aboutView); !already {
 					return a, msgOf(pushMsg{&aboutView{}})
