@@ -844,6 +844,8 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			return v, msgOf(pushMsg{&resolveView{ticket: *t}})
 		case "c":
 			return v, msgOf(pushMsg{newComment(*t)})
+		case "h": // its history: what happened to it, by whom, when (TL-598)
+			return v, msgOf(pushMsg{&historyView{ticket: *t}})
 		case "a":
 			if t.Done { // finished work isn't assigned (the API refuses it too)
 				return v, nil
@@ -1046,13 +1048,13 @@ func (v *ticketView) render(a *app) string {
 
 func (v *ticketView) help() string {
 	if v.ticket != nil && v.ticket.Done {
-		return "j/k scroll · " + v.treeHelp() + "e edit · m move · c comment · r reload · esc/q back"
+		return T("j/k scroll") + " · " + v.treeHelp() + T("e edit · m move · c comment") + " · " + T("h history") + " · " + T("r reload · esc/q back")
 	}
 	resolve := ""
 	if v.ticket != nil && v.ticket.BoardID == nil {
 		resolve = T("x close/won’t do") + " · "
 	}
-	return T("j/k scroll") + " · " + v.treeHelp() + T("e edit · m move · c comment · a assign me / unassign") + " · " + resolve + T("r reload · esc/q back")
+	return T("j/k scroll") + " · " + v.treeHelp() + T("e edit · m move · c comment · a assign me / unassign") + " · " + resolve + T("h history") + " · " + T("r reload · esc/q back")
 }
 
 // treeHelp is the sub-ticket/parent keys, when the ticket has either.
@@ -1893,3 +1895,104 @@ func (v *draftsView) help() string {
 	return T("j/k move · r send again · x discard · enter open ticket · esc/q back")
 }
 func (v *draftsView) typing() bool { return false }
+
+// historyView is a ticket's history (TL-598), newest first: each stage it entered or skipped, who
+// did it and when.
+type historyView struct {
+	ticket  Ticket
+	entries []api.HistoryEntry // oldest first, as the API sends them
+	loaded  bool
+	cursor  int
+}
+
+func (v *historyView) tag() string { return "history:" + v.ticket.ID }
+
+func (v *historyView) load(a *app) tea.Cmd {
+	id := v.ticket.ID
+	return fetch(v.tag(), func(ctx context.Context) (any, error) { return a.api.History(ctx, id) })
+}
+
+func (v *historyView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
+	switch msg := msg.(type) {
+	case loadedMsg:
+		if d, ok := msg.data.([]api.HistoryEntry); ok && msg.tag == v.tag() {
+			v.entries, v.loaded = d, true
+		}
+	case tea.KeyMsg:
+		if cursorKeys(msg.String(), &v.cursor, len(v.entries)) {
+			return v, nil
+		}
+		if msg.String() == "r" {
+			a.loading = true
+			return v, v.load(a)
+		}
+	}
+	return v, nil
+}
+
+func (v *historyView) render(a *app) string {
+	head := accent.Render(F("History of %s", v.ticket.Key)) + "  " + v.ticket.Title + "\n\n"
+	switch {
+	case !v.loaded && a.loading:
+		return head
+	case !v.loaded: // the error is in the status line
+		return head + warn.Render(T("Couldn’t load the history.")) + muted.Render(" "+T("r to try again")) + "\n"
+	case len(v.entries) == 0:
+		return head + muted.Render(T("No history yet.")) + "\n"
+	}
+	rows := make([]string, len(v.entries))
+	for i := range v.entries {
+		e := v.entries[len(v.entries)-1-i] // newest first
+		who := Author
+		if e.Actor != nil {
+			who = a.name(*e.Actor)
+		}
+		rows[i] = muted.Render(when(e.At)) + "  " + historyStep(e) + muted.Render("  "+F("by %s", who))
+	}
+	return head + lines(rows, v.cursor, a.rows()-2)
+}
+
+// Author is who the system's own changes are by.
+const Author = "TrackLin.es"
+
+// historyStep says what one history entry was: "Moved to Web · In progress", "Skipped the backlog"…
+func historyStep(e api.HistoryEntry) string {
+	switch e.Stage {
+	case "backlog":
+		if e.Outcome == "skipped" {
+			return T("Skipped the backlog")
+		}
+		return T("Into the backlog")
+	case "resolved":
+		res := T("done")
+		if e.Resolution != nil && *e.Resolution == "wont_do" {
+			res = T("won’t do")
+		} else if e.Resolution != nil && *e.Resolution == "duplicate" {
+			res = T("duplicate")
+		}
+		return F("Resolved: %s", res)
+	}
+	where := ""
+	if e.BoardName != nil {
+		where = *e.BoardName + " · "
+	}
+	if e.ColumnName != nil {
+		where += *e.ColumnName
+	}
+	if e.Outcome == "skipped" {
+		return muted.Render(F("Skipped %s", where))
+	}
+	return F("Moved to %s", where)
+}
+
+// when is an RFC 3339 time as local "2026-10-25 14:02".
+func when(ts string) string {
+	t, err := time.Parse(time.RFC3339, ts)
+	if err != nil {
+		return ts
+	}
+	return t.Local().Format("2006-01-02 15:04")
+}
+
+func (v *historyView) help() string { return T("j/k scroll · r reload · esc/q back") }
+func (v *historyView) typing() bool { return false }
