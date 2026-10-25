@@ -26,4 +26,8 @@ update_check = on
 #   system  your locale (LANG, LC_ALL, LC_MESSAGES) when it's one the TUI has, else English
 #   en      English
 #   nl      Nederlands
+#   de      Deutsch
+#   es      Español
+#   pt      Português (Brasil)
+#   fr      Français
 language = system

@@ -22,8 +22,9 @@ type Settings struct {
 	Reports bool
 	// UpdateCheck: a release build looks for a newer release when it starts.
 	UpdateCheck bool
-	// Language the TUI speaks: system (your locale, when it's one the TUI has; else English), en or
-	// nl (TL-604). Ticket text is never translated.
+	// Language the TUI speaks: system (your locale, when it's one the TUI has; else English), en, nl,
+	// de, es, pt (Brazilian) or fr (TL-604, TL-613); tlh is Klingon, an easter egg (TL-609). Ticket
+	// text is never translated.
 	Language string
 }
 
@@ -77,7 +78,7 @@ func Load(path string) Settings {
 		case "update_check":
 			onOff(value, &s.UpdateCheck)
 		case "language":
-			if v := strings.TrimSpace(value); v == "system" || v == "en" || v == "nl" {
+			if v := strings.TrimSpace(value); v == "system" || v == "en" || v == "nl" || v == "de" || v == "es" || v == "pt" || v == "fr" || v == "tlh" {
 				s.Language = v
 			}
 		}
