@@ -65,7 +65,7 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most u
 - A search takes words or a ticket key such as `TL-123`. Results say which project, board and column each ticket is in; `/` from the results starts from the same words, and `r` retries a search that failed.
 - Boards that use estimates ask for one when you create a ticket there.
 - Choose `spike` to set an optional timebox in days (0–60) and hours (0–23); `not set` is available for either. Changing to another type clears the timebox.
-- Backlog tickets are put on a board in the web app, where the sprint capacity checks are.
+- `m` on a backlog ticket picks a board, then a column, then an estimate if that board sizes tickets. When a move isn't allowed (a read-only key, a sprint on its last day), the TUI says why.
 
 ## Config
 

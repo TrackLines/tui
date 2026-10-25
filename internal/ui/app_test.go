@@ -79,6 +79,9 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 			default: // the session, and joining it
 				out = session
 			}
+		case r.Method == http.MethodPost && p == "/api/tickets/t2/move" && body["estimate"] == "13":
+			http.Error(w, "sprint 4 ends today: its scope is locked. Put this in the backlog or the next sprint", http.StatusConflict)
+			return
 		case r.Method == http.MethodPost && p == "/api/tickets/t1/move" && body["column_id"] == "c3":
 			http.Error(w, "this api key is read-only", http.StatusForbidden)
 			return
@@ -317,11 +320,28 @@ func TestEditingAssigningCommentingMoving(t *testing.T) {
 	expect(t, a, "this api key is read-only")
 }
 
-func TestBacklogTicketsAreMovedInTheWebAppAndSearch(t *testing.T) {
+// A backlog ticket moves onto a board: board, column, then an estimate when the board sizes
+// tickets (TL-603). A refused move says why, in the API's words, and stays put to try again.
+func TestBacklogTicketMovesOntoABoard(t *testing.T) {
 	a, calls := start(t)
 	press(a, "j", "enter", "m") // TL-2, in the backlog
-	expect(t, a, "put it on a board in the web app")
-	press(a, "esc", "/", "login", "enter")
+	expect(t, a, "Move TL-2 to which board", "Web")
+	press(a, "enter")
+	expect(t, a, "Move TL-2 to Web", "To do", "In progress")
+	press(a, "enter")
+	expect(t, a, "Estimate TL-2", "fibonacci", "21")
+	press(a, "G", "k", "enter") // 13: the sprint's last day
+	expect(t, a, "sprint 4 ends today: its scope is locked", "Estimate TL-2")
+	press(a, "k", "k", "enter") // 5
+	if c := find(*calls, "POST /api/tickets/t2/move"); c != `POST /api/tickets/t2/move {"column_id":"c1","estimate":"5","position":1}` {
+		t.Fatalf("move: %q", c)
+	}
+	expect(t, a, "Moved to To do.")
+}
+
+func TestSearchFromATicket(t *testing.T) {
+	a, calls := start(t)
+	press(a, "j", "enter", "/", "login", "enter")
 	if !strings.Contains(last(calls), "q=login") {
 		t.Fatalf("search: %s", last(calls))
 	}
