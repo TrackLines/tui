@@ -110,6 +110,10 @@ func (v *listView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			if v.project != "" {
 				return v, msgOf(pushMsg{&labelsView{list: v}})
 			}
+		case "m":
+			if v.project != "" && len(v.items) > 0 {
+				return v, msgOf(pushMsg{&moveView{ticket: v.items[v.cursor]}})
+			}
 		case "r":
 			a.loading = true
 			return v, v.load(a)
@@ -208,7 +212,7 @@ func slide(title string, from, width int) string {
 func (v *listView) help() string {
 	h := "j/k move · h/l scroll title · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit"
 	if v.project != "" {
-		h = "j/k move · h/l scroll title · enter open · n new ticket · s sort · f labels · esc/q back · Q quit"
+		h = "j/k move · h/l scroll title · enter open · m move to board · n new ticket · s sort · f labels · esc/q back · Q quit"
 	}
 	if v.query != "" {
 		h = "j/k move · h/l scroll title · enter open · / search again · r retry · esc/q back · Q quit"
@@ -550,6 +554,9 @@ func (v *projectView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		if v.project == nil {
 			return v, nil
 		}
+		if msg.String() == "B" { // Shift+B jumps straight to the backlog, whatever row is selected.
+			return v, msgOf(pushMsg{&listView{tag: "backlog:" + v.id, heading: v.project.Name + " → Backlog", project: v.id, sort: backlogSort}})
+		}
 		if msg.String() == "f" && v.refinement != nil {
 			return v, msgOf(pushMsg{&followView{kind: "refinement", id: v.id, name: v.project.Name}})
 		}
@@ -592,7 +599,9 @@ func (v *projectView) render(a *app) string {
 	return head + "\n" + sessionBanner(a, "refinement", v.refinement) + "\n" + lines(rows, v.cursor, a.rows()-4)
 }
 
-func (v *projectView) help() string { return "j/k move · enter open · esc/q back · Q quit" }
+func (v *projectView) help() string {
+	return "j/k move · enter open · B backlog · esc/q back · Q quit"
+}
 func (v *projectView) typing() bool { return false }
 
 // boardView shows a board's columns side by side. h/l pick a column, j/k a ticket; H/L move the

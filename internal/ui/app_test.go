@@ -30,6 +30,7 @@ var (
 func fakeAPI(t *testing.T) (*Client, *[]string) {
 	var calls []string
 	var mu sync.Mutex
+	movedT2 := false
 	flaky := 0 // searches for "flaky": the first fails
 	ticket := func(id string) map[string]any {
 		if id == "t2" {
@@ -82,6 +83,12 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 		case r.Method == http.MethodPost && p == "/api/tickets/t2/move" && body["estimate"] == "13":
 			http.Error(w, "sprint 4 ends today: its scope is locked. Put this in the backlog or the next sprint", http.StatusConflict)
 			return
+		case r.Method == http.MethodPost && p == "/api/tickets/t2/move":
+			mu.Lock()
+			movedT2 = true
+			mu.Unlock()
+			w.WriteHeader(http.StatusNoContent)
+			return
 		case r.Method == http.MethodPost && p == "/api/tickets/t1/move" && body["column_id"] == "c3":
 			http.Error(w, "this api key is read-only", http.StatusForbidden)
 			return
@@ -122,9 +129,16 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 		case p == "/api/projects/p1":
 			out = map[string]any{"id": "p1", "name": "TrackLines", "key_prefix": "TL", "boards": []any{board}}
 		case p == "/api/projects/p1/backlog/page":
-			t2 := ticket("t2")
-			t2["labels"] = []string{"ux"}
-			out = map[string]any{"tickets": []any{t2}, "labels": []map[string]any{{"label": "api", "count": 2}, {"label": "ux", "count": 1}}}
+			mu.Lock()
+			moved := movedT2
+			mu.Unlock()
+			tickets := []any{}
+			if !moved {
+				t2 := ticket("t2")
+				t2["labels"] = []string{"ux"}
+				tickets = append(tickets, t2)
+			}
+			out = map[string]any{"tickets": tickets, "labels": []map[string]any{{"label": "api", "count": 2}, {"label": "ux", "count": 1}}}
 		case p == "/api/mentions/page":
 			out = map[string]any{"mentions": []map[string]any{{"ticket_id": "t1", "key": "TL-1", "title": "Fix login", "project_name": "TrackLines", "actor": "user_1", "mentioned_at": "2026-10-19T10:00:00Z"}}}
 		}
@@ -260,6 +274,27 @@ func TestProjectsBoardsAndMovingOnTheBoard(t *testing.T) {
 	expect(t, a, "TrackLines → Backlog", "TL-2", "Idea")
 }
 
+func TestProjectPageShiftBOpensBacklogFromAnyRow(t *testing.T) {
+	a, _ := start(t)
+	press(a, "2", "enter") // project page with Web selected
+	if !strings.Contains(a.top().help(), "B backlog") {
+		t.Fatalf("project page hint omits Shift+B: %s", a.top().help())
+	}
+	press(a, "B")
+	expect(t, a, "TrackLines → Backlog", "TL-2", "Idea")
+	press(a, "esc", "j", "B") // return, select the Backlog row, and jump there too
+	expect(t, a, "TrackLines → Backlog", "TL-2", "Idea")
+}
+
+func TestShiftBDoesNothingOutsideProjectPage(t *testing.T) {
+	a, calls := start(t)
+	beforeView, beforeCalls := a.View(), len(*calls)
+	press(a, "B")
+	if a.View() != beforeView || len(*calls) != beforeCalls {
+		t.Fatalf("Shift+B changed a non-project screen:\n%s", a.View())
+	}
+}
+
 func TestCreatingTickets(t *testing.T) {
 	a, calls := start(t)
 	press(a, "2", "enter", "enter") // the Web board
@@ -337,6 +372,52 @@ func TestBacklogTicketMovesOntoABoard(t *testing.T) {
 		t.Fatalf("move: %q", c)
 	}
 	expect(t, a, "Moved to To do.")
+}
+
+func openBacklog(t *testing.T) (*app, *[]string) {
+	t.Helper()
+	a, calls := start(t)
+	press(a, "2", "enter", "j", "enter") // Projects → TrackLines → Backlog
+	expect(t, a, "TrackLines → Backlog", "TL-2", "Idea")
+	return a, calls
+}
+
+func TestBacklogSelectedTicketMovesWithM(t *testing.T) {
+	a, calls := openBacklog(t)
+	if !strings.Contains(a.top().help(), "m move to board") {
+		t.Fatalf("backlog hint omits m: %s", a.top().help())
+	}
+	press(a, "m")
+	expect(t, a, "Move TL-2 to which board", "Web")
+	press(a, "enter", "enter", "enter") // Web → To do → first estimate
+	expect(t, a, "Moved to To do.", "Nothing here.")
+	if !strings.Contains(strings.Join(*calls, "\n"), `POST /api/tickets/t2/move {"column_id":"c1","estimate":"1","position":1}`) {
+		t.Fatalf("move wasn't sent from the selected backlog row: %v", *calls)
+	}
+}
+
+func TestBacklogMoveCancelAndFailureKeepTicket(t *testing.T) {
+	t.Run("cancel", func(t *testing.T) {
+		a, _ := openBacklog(t)
+		press(a, "m", "esc")
+		expect(t, a, "TrackLines → Backlog", "TL-2", "Idea")
+	})
+	t.Run("failure", func(t *testing.T) {
+		a, _ := openBacklog(t)
+		press(a, "m", "enter", "enter", "G", "k", "enter") // choose Web, then locked estimate 13
+		expect(t, a, "sprint 4 ends today: its scope is locked", "Estimate TL-2")
+		press(a, "esc")
+		expect(t, a, "TrackLines → Backlog", "TL-2", "Idea")
+	})
+}
+
+func TestMoveKeyDoesNothingOutsideBacklog(t *testing.T) {
+	a, calls := start(t)
+	before := len(*calls)
+	press(a, "m")
+	if len(*calls) != before || strings.Contains(a.View(), "Move TL-") {
+		t.Fatalf("m triggered outside backlog: calls=%v\n%s", (*calls)[before:], a.View())
+	}
 }
 
 func TestSearchFromATicket(t *testing.T) {
