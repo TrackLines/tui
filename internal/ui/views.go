@@ -809,10 +809,6 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 				return pushMsg{newForm(t, t.ProjectID, "", b.EstimateScale)}
 			}
 		case "m":
-			if t.BoardID == nil {
-				a.status = warn.Render("It’s in the backlog: put it on a board in the web app, where the sprint capacity checks are.")
-				return v, nil
-			}
 			return v, msgOf(pushMsg{&moveView{ticket: *t}})
 		case "x":
 			// backlog tickets have no Done column to move into, so they close in place (TL-272);
@@ -1088,59 +1084,134 @@ func (v *resolveView) render(a *app) string {
 func (v *resolveView) help() string { return "j/k pick · enter resolve · esc cancel" }
 func (v *resolveView) typing() bool { return false }
 
-// moveView picks the column to move a ticket to, on its board.
+// moveView picks the column to move a ticket to, on its board. A backlog ticket picks a board
+// first, and an estimate after the column when that board sizes its tickets (TL-603). The API says
+// why when a move isn't allowed (a read-only key, a sprint on its last day).
 type moveView struct {
-	ticket Ticket
-	board  *Board
-	cursor int
+	ticket    Ticket
+	boards    []Board // backlog: the project's boards, until one is picked
+	board     *Board
+	column    *Column // picked; waiting for an estimate
+	estimates []string
+	cursor    int
 }
 
 func (v *moveView) load(a *app) tea.Cmd {
-	board := *v.ticket.BoardID
-	return fetch("move:"+v.ticket.ID, func(ctx context.Context) (any, error) { return a.api.Board(ctx, board) })
+	switch {
+	case v.board != nil:
+		a.loading = false
+		return nil
+	case v.ticket.BoardID == nil:
+		project := v.ticket.ProjectID
+		return fetch("move:"+v.ticket.ID, func(ctx context.Context) (any, error) { return a.api.Project(ctx, project) })
+	}
+	return v.loadBoard(a, *v.ticket.BoardID)
+}
+
+func (v *moveView) loadBoard(a *app, id string) tea.Cmd {
+	a.loading = true
+	return fetch("move:"+v.ticket.ID, func(ctx context.Context) (any, error) { return a.api.Board(ctx, id) })
 }
 
 func (v *moveView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	switch msg := msg.(type) {
 	case loadedMsg:
-		if b, isBoard := msg.data.(Board); isBoard && msg.tag == "move:"+v.ticket.ID {
-			v.board = &b
+		if msg.tag != "move:"+v.ticket.ID {
+			return v, nil
+		}
+		switch d := msg.data.(type) {
+		case Project:
+			v.boards = d.Boards
+		case Board:
+			v.board, v.cursor = &d, 0
 		}
 	case tea.KeyMsg:
-		if v.board == nil {
+		k := msg.String()
+		if cursorKeys(k, &v.cursor, len(v.rows())) || k != "enter" || len(v.rows()) == 0 {
 			return v, nil
 		}
-		if cursorKeys(msg.String(), &v.cursor, len(v.board.Columns)) {
-			return v, nil
-		}
-		if msg.String() == "enter" {
-			col, id := v.board.Columns[v.cursor], v.ticket.ID
-			return v, func() tea.Msg {
-				if err := a.api.Move(context.Background(), id, col); err != nil {
-					return statusMsg{err: err}
+		switch {
+		case v.board == nil:
+			return v, v.loadBoard(a, v.boards[v.cursor].ID)
+		case v.column == nil:
+			col := v.board.Columns[v.cursor]
+			if v.ticket.BoardID == nil && api.Scales[v.board.EstimateScale] != nil {
+				v.column, v.estimates = &col, api.Scales[v.board.EstimateScale]
+				v.cursor = 0
+				if v.ticket.Estimate != nil {
+					v.cursor = max(indexOf(v.estimates, *v.ticket.Estimate), 0)
 				}
-				return popMsg{ok.Render("Moved to " + col.Name + ".")}
+				return v, nil
 			}
+			return v, v.move(a, col, "")
+		default:
+			return v, v.move(a, *v.column, v.estimates[v.cursor])
 		}
 	}
 	return v, nil
 }
 
-func (v *moveView) render(a *app) string {
-	if v.board == nil {
-		return ""
-	}
-	rows := make([]string, len(v.board.Columns))
-	for i, c := range v.board.Columns {
-		rows[i] = "  " + c.Name
-		if v.ticket.ColumnID != nil && *v.ticket.ColumnID == c.ID {
-			rows[i] += muted.Render("  (now)")
+func (v *moveView) move(a *app, col Column, estimate string) tea.Cmd {
+	id := v.ticket.ID
+	return func() tea.Msg {
+		if err := a.api.MoveSized(context.Background(), id, col, estimate); err != nil {
+			return statusMsg{err: err}
 		}
+		return popMsg{ok.Render("Moved to " + col.Name + ".")}
 	}
-	return accent.Render("Move "+v.ticket.Key+" to") + "\n\n" + lines(rows, v.cursor, a.rows()-2)
 }
 
-func (v *moveView) help() string { return "j/k pick a column · enter move · esc cancel" }
+// rows is what's being picked from: boards, columns or estimates.
+func (v *moveView) rows() []string {
+	var rows []string
+	switch {
+	case v.board == nil:
+		for _, b := range v.boards {
+			rows = append(rows, "  "+b.Name)
+		}
+	case v.column == nil:
+		for _, c := range v.board.Columns {
+			row := "  " + c.Name
+			if v.ticket.ColumnID != nil && *v.ticket.ColumnID == c.ID {
+				row += muted.Render("  (now)")
+			}
+			rows = append(rows, row)
+		}
+	default:
+		for _, e := range v.estimates {
+			rows = append(rows, "  "+e)
+		}
+	}
+	return rows
+}
+
+func (v *moveView) render(a *app) string {
+	title := "Move " + v.ticket.Key + " to"
+	switch {
+	case v.board == nil && v.boards == nil:
+		return ""
+	case v.board == nil:
+		if len(v.boards) == 0 {
+			return accent.Render(title) + "\n\n" + muted.Render("This project has no boards yet.") + "\n"
+		}
+		title += " which board"
+	case v.column == nil:
+		title += " " + v.board.Name
+	default:
+		title = "Estimate " + v.ticket.Key + muted.Render("  "+v.board.Name+" sizes on the "+v.board.EstimateScale+" scale")
+	}
+	return accent.Render(title) + "\n\n" + lines(v.rows(), v.cursor, a.rows()-2)
+}
+
+func (v *moveView) help() string {
+	switch {
+	case v.board == nil:
+		return "j/k pick a board · enter next · esc cancel"
+	case v.column != nil:
+		return "j/k pick an estimate · enter move · esc cancel"
+	}
+	return "j/k pick a column · enter move · esc cancel"
+}
 func (v *moveView) typing() bool { return false }
 
 // commentView writes a comment on a ticket.

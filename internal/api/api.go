@@ -274,7 +274,17 @@ func (c *Client) Comment(ctx context.Context, ticket, body string) error {
 
 // Move puts the ticket at the bottom of a column, as dragging it there would.
 func (c *Client) Move(ctx context.Context, ticket string, col Column) error {
-	return c.do(ctx, http.MethodPost, "/tickets/"+url.PathEscape(ticket)+"/move", map[string]any{"column_id": col.ID, "position": len(col.Tickets)}, nil)
+	return c.MoveSized(ctx, ticket, col, "")
+}
+
+// MoveSized moves a ticket and, unless estimate is "", sizes it on the way: a backlog ticket going
+// onto a board with an estimate scale needs one.
+func (c *Client) MoveSized(ctx context.Context, ticket string, col Column, estimate string) error {
+	body := map[string]any{"column_id": col.ID, "position": len(col.Tickets)}
+	if estimate != "" {
+		body["estimate"] = estimate
+	}
+	return c.do(ctx, http.MethodPost, "/tickets/"+url.PathEscape(ticket)+"/move", body, nil)
 }
 
 // Resolution is how a backlog ticket closes in place: done (finished) or wont_do (decided against).
