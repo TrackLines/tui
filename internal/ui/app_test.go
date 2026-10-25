@@ -1471,3 +1471,44 @@ func TestBoardShowsTheSelectedTitleInFull(t *testing.T) {
 		t.Fatal("an empty column shows no ticket")
 	}
 }
+
+// TL-649: the screen you're on reloads in the background, like the website: every minute, and at
+// once when the terminal is focused again; never while away, or on a screen you're typing on.
+func TestBackgroundRefresh(t *testing.T) {
+	a, calls := start(t)
+	const myWork = "GET /api/search?assignee=me"
+	tick := func() { _, cmd := a.Update(refreshTick{}); pump(a, cmd, 0) }
+	n := count(*calls, myWork)
+	tick()
+	if got := count(*calls, myWork); got != n+1 {
+		t.Fatalf("a refresh tick didn't reload my work: %d → %d", n, got)
+	}
+	if a.loading {
+		t.Fatal("a background refresh shows Loading…")
+	}
+
+	a.Update(tea.BlurMsg{})
+	tick()
+	if got := count(*calls, myWork); got != n+1 {
+		t.Fatal("refreshed while the terminal wasn't focused")
+	}
+	_, cmd := a.Update(tea.FocusMsg{})
+	pump(a, cmd, 0)
+	if got := count(*calls, myWork); got != n+2 {
+		t.Fatal("coming back to the terminal didn't refresh at once")
+	}
+
+	// a ticket keeps its place, and a form or comment is never reloaded under you
+	press(a, "enter")
+	tickets := count(*calls, "GET /api/tickets/t1/comments")
+	tick()
+	if count(*calls, "GET /api/tickets/t1/comments") != tickets+1 {
+		t.Fatal("the ticket screen didn't refresh")
+	}
+	press(a, "c")
+	tickets = count(*calls, "GET /api/tickets/t1")
+	tick()
+	if count(*calls, "GET /api/tickets/t1") != tickets {
+		t.Fatal("refreshed while writing a comment")
+	}
+}

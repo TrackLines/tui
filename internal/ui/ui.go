@@ -45,6 +45,7 @@ type app struct {
 	width, height int
 	status        string
 	loading       bool
+	away          bool // the terminal isn't focused: no background refreshes (TL-649)
 	people        map[string]string
 	me            string
 	latest        *update.Release // a newer release than this one, when there is
@@ -131,9 +132,33 @@ func (a *app) leaving(n int) tea.Cmd {
 
 type latestMsg update.Release
 
+// refreshEvery: like the website (lib/use-auto-refresh.ts), the screen you're on reloads in the
+// background this often, and at once when the terminal is focused again (TL-649).
+const refreshEvery = time.Minute
+
+type refreshTick struct{}
+
+func refreshLater() tea.Cmd {
+	return tea.Tick(refreshEvery, func(time.Time) tea.Msg { return refreshTick{} })
+}
+
+// refresh reloads the screen you're on, quietly, if it's one that shows shared data and you're not
+// typing on it; never on forms, moves or comments, and not while another load is on its way.
+func (a *app) refresh() tea.Cmd {
+	v := a.top()
+	if a.away || a.loading || v.typing() {
+		return nil
+	}
+	switch v.(type) {
+	case *homeView, *listView, *projectsView, *projectView, *boardView, *ticketView, *historyView:
+		return v.load(a)
+	}
+	return nil
+}
+
 func (a *app) Init() tea.Cmd {
 	a.loading = true
-	return tea.Batch(a.top().load(a), a.checkUpdate(), func() tea.Msg {
+	return tea.Batch(a.top().load(a), a.checkUpdate(), refreshLater(), func() tea.Msg {
 		p, me, _ := a.api.People(context.Background()) // ponytail: without names, comments show ids; not worth an error
 		return peopleMsg{p, me}
 	})
@@ -175,6 +200,14 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case peopleMsg:
 		a.people, a.me = msg.people, msg.me
 		return a, nil
+	case refreshTick:
+		return a, tea.Batch(refreshLater(), a.refresh())
+	case tea.BlurMsg:
+		a.away = true
+		return a, nil
+	case tea.FocusMsg:
+		a.away = false
+		return a, a.refresh()
 	case latestMsg:
 		r := update.Release(msg)
 		a.latest = &r
