@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tracklines/tui/internal/i18n"
 )
 
 // Updates come from the GitHub releases CI makes for each v* tag: static Linux binaries for amd64 and
@@ -66,7 +69,7 @@ func Latest(ctx context.Context, client *http.Client) (Release, error) {
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return Release{}, fmt.Errorf("checking for updates: GitHub said %s", res.Status)
+		return Release{}, fmt.Errorf(i18n.T("checking for updates: GitHub said %s"), res.Status)
 	}
 	var r Release
 	return r, json.NewDecoder(res.Body).Decode(&r)
@@ -111,7 +114,7 @@ func SelfUpdate(ctx context.Context, client *http.Client, r Release) error {
 	name := binaryName()
 	bin, sums := r.asset(name), r.asset("SHA256SUMS")
 	if bin == "" || sums == "" {
-		return fmt.Errorf("there’s no %s download: build it yourself with `make install`", name)
+		return fmt.Errorf(i18n.T("there’s no %s download: build it yourself with `make install`"), name)
 	}
 	want, err := checksum(ctx, client, sums, name)
 	if err != nil {
@@ -126,7 +129,7 @@ func SelfUpdate(ctx context.Context, client *http.Client, r Release) error {
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(exe), ".tracklines-update-*")
 	if err != nil {
-		return fmt.Errorf("can’t write next to %s: %w", exe, err)
+		return fmt.Errorf(i18n.T("can’t write next to %s: %w"), exe, err)
 	}
 	defer os.Remove(tmp.Name()) // gone once renamed; cleans up if anything fails
 	h := sha256.New()
@@ -138,7 +141,7 @@ func SelfUpdate(ctx context.Context, client *http.Client, r Release) error {
 		return err
 	}
 	if got := hex.EncodeToString(h.Sum(nil)); got != want {
-		return fmt.Errorf("the download doesn’t match its checksum, so nothing was changed")
+		return errors.New(i18n.T("the download doesn’t match its checksum, so nothing was changed"))
 	}
 	if err := os.Chmod(tmp.Name(), 0o755); err != nil {
 		return err
@@ -158,7 +161,7 @@ func checksum(ctx context.Context, client *http.Client, url, name string) (strin
 			return strings.ToLower(f[0]), nil
 		}
 	}
-	return "", fmt.Errorf("SHA256SUMS has no %s", name)
+	return "", fmt.Errorf(i18n.T("SHA256SUMS has no %s"), name)
 }
 
 func download(ctx context.Context, client *http.Client, url string, w io.Writer) error {
@@ -174,7 +177,7 @@ func download(ctx context.Context, client *http.Client, url string, w io.Writer)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("downloading the update: %s", res.Status)
+		return fmt.Errorf(i18n.T("downloading the update: %s"), res.Status)
 	}
 	_, err = io.Copy(w, res.Body)
 	return err

@@ -21,3 +21,9 @@ reports = on
 
 # Look for a newer release when it starts (release builds only); ? then u installs it. on | off
 update_check = on
+
+# The language the TUI speaks (tickets and comments stay as written):
+#   system  your locale (LANG, LC_ALL, LC_MESSAGES) when it's one the TUI has, else English
+#   en      English
+#   nl      Nederlands
+language = system

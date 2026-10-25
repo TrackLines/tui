@@ -49,7 +49,7 @@ func TestConfigExample(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"keys", "backlog_sort", "reports", "update_check"} { // every setting Load knows
+	for _, name := range []string{"keys", "backlog_sort", "reports", "update_check", "language"} { // every setting Load knows
 		if !strings.Contains(string(b), "\n"+name+" = ") {
 			t.Fatalf("config.example lacks %s", name)
 		}

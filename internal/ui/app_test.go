@@ -16,6 +16,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/tracklines/tui/internal/drafts"
+	"github.com/tracklines/tui/internal/i18n"
 	"github.com/tracklines/tui/internal/update"
 	"github.com/tracklines/tui/internal/usage"
 )
@@ -1347,4 +1348,20 @@ func TestFormerMemberOnATicket(t *testing.T) {
 	if strings.Contains(a.View(), "user_1") {
 		t.Fatalf("raw id shown:\n%s", a.View())
 	}
+}
+
+// language = nl: the screens speak Dutch; tickets, names and keys stay as they are (TL-604).
+func TestDutch(t *testing.T) {
+	i18n.Set("nl")
+	defer i18n.Set("en")
+	a, _ := start(t)
+	expect(t, a, "Mijn werk", "Projecten", "j/k bewegen", "Fix login") // navigation, help, ticket text as written
+	press(a, "enter")
+	expect(t, a, "urgent", "schatting 3", "Reacties (1)", "e bewerken")
+	press(a, "c")
+	expect(t, a, "Reageren op TL-1", "-- INVOEGEN --")
+	press(a, "esc", "q", "e") // the form
+	expect(t, a, "TL-1 bewerken", "Titel", "Prioriteit", "Schatting", "Beschrijving")
+	press(a, "esc", "q", "esc", "t", "TL-999", "enter") // an error
+	expect(t, a, "Er is geen ticket TL-999.", "Naar een ticket")
 }

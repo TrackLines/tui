@@ -55,11 +55,11 @@ func (c *cmdLine) key(k tea.KeyMsg, unsaved bool) vimAction {
 			if !unsaved {
 				return vimCancel
 			}
-			c.msg = "E37: No write since last change (add ! to override)"
+			c.msg = T("E37: No write since last change (add ! to override)")
 		case "q!":
 			return vimCancel
 		default:
-			c.msg = "E492: Not an editor command: " + cmd
+			c.msg = F("E492: Not an editor command: %s", cmd)
 		}
 	}
 	return vimNone
@@ -211,23 +211,23 @@ func (v *vimArea) hasUnsaved() bool {
 func (v *vimArea) mode() string {
 	switch {
 	case v.pending == "esc":
-		return warn.Render("Unsaved text: esc again to discard it")
+		return warn.Render(T("Unsaved text: esc again to discard it"))
 	case !vimKeys:
 		return ""
 	case v.cmd.on || v.cmd.msg != "":
 		return v.cmd.view()
 	case v.pending == "q":
-		return warn.Render("Unsent text: q again to discard it")
+		return warn.Render(T("Unsent text: q again to discard it"))
 	case v.normal:
-		return bold.Render("-- NORMAL --")
+		return bold.Render(T("-- NORMAL --"))
 	}
-	return accent.Render("-- INSERT --")
+	return accent.Render(T("-- INSERT --"))
 }
 
 // editHelp is the keys for writing: vim's, or standard ones (keys = standard in the config).
 func editHelp() string {
 	if !vimKeys {
-		return "ctrl+s save · esc cancel"
+		return T("ctrl+s save · esc cancel")
 	}
-	return "esc normal mode · i/a/o insert · :w save · :q cancel (:q! discards) · ctrl+s save"
+	return T("esc normal mode · i/a/o insert · :w save · :q cancel (:q! discards) · ctrl+s save")
 }
