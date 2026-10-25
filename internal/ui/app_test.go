@@ -30,6 +30,7 @@ var (
 	// (502); ticketUpdated: TL-1's updated_at (TL-599)
 	apiDown, replyLost bool
 	historyFails       bool // TL-1's history can't be read (TL-598)
+	ticketDue          any  // TL-1's due_date (TL-640); nil is none
 	ticketUpdated      = "2026-10-25T10:00:00Z"
 )
 
@@ -46,7 +47,7 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 			return map[string]any{"id": "t2", "key": "TL-2", "title": "Idea", "project_id": "p1"}
 		}
 		return map[string]any{"id": "t1", "key": "TL-1", "title": "Fix login", "description": "Login fails", "type": "bug", "priority": "urgent", "estimate": "3",
-			"project_id": "p1", "board_id": "b1", "board_name": "Web", "column_id": "c1", "column_name": "To do", "updated_at": ticketUpdated}
+			"project_id": "p1", "board_id": "b1", "board_name": "Web", "column_id": "c1", "column_name": "To do", "updated_at": ticketUpdated, "due_date": ticketDue}
 	}
 	board := map[string]any{"id": "b1", "name": "Web", "project_id": "p1", "style": "sprints", "estimate_scale": "fibonacci", "columns": []map[string]any{
 		{"id": "c1", "name": "To do", "tickets": []any{ticket("t1")}},
@@ -126,7 +127,7 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 			http.Error(w, "search is down", http.StatusBadGateway)
 			return
 		case p == "/api/search":
-			out = []any{map[string]any{"id": "t1", "key": "TL-1", "title": "Fix login", "project_name": "TrackLines", "board_name": "Web", "column_name": "To do"}, map[string]any{"id": "t2", "key": "TL-2", "title": "Idea"}}
+			out = []any{map[string]any{"id": "t1", "key": "TL-1", "title": "Fix login", "project_name": "TrackLines", "board_name": "Web", "column_name": "To do", "due_date": ticketDue}, map[string]any{"id": "t2", "key": "TL-2", "title": "Idea"}}
 		case p == "/api/ticket-keys/TL-1":
 			out = ticket("t1")
 		case strings.HasPrefix(p, "/api/ticket-keys/"):
@@ -817,11 +818,12 @@ func TestVimForm(t *testing.T) {
 	expect(t, a, "Unsaved changes: q again to discard them")
 	press(a, "j", "l") // q's warning goes; type: bug
 	expect(t, a, "‹ bug ›")
-	press(a, "j", "j", "l", "j") // priority, estimate 1, then the description, still in normal mode
+	press(a, "j", "j", "l", "j", "l", "j") // priority, estimate 1, due tomorrow (TL-640), then the description, still in normal mode
 	press(a, "i", "Steps", "esc")
 	expect(t, a, "-- NORMAL --")
 	press(a, "ctrl+s")
-	if c := strings.Join(*calls, "\n"); !strings.Contains(c, `"description":"Steps"`) || !strings.Contains(c, `"title":"SSO"`) || !strings.Contains(c, `"type":"bug"`) || !strings.Contains(c, `"estimate":"1"`) {
+	tomorrow := time.Now().AddDate(0, 0, 1).Format(time.DateOnly)
+	if c := strings.Join(*calls, "\n"); !strings.Contains(c, `"description":"Steps"`) || !strings.Contains(c, `"title":"SSO"`) || !strings.Contains(c, `"type":"bug"`) || !strings.Contains(c, `"estimate":"1"`) || !strings.Contains(c, `"due_date":"`+tomorrow+`"`) {
 		t.Fatalf("vim form: %v", *calls)
 	}
 	// an untouched form closes on one q
@@ -1402,4 +1404,45 @@ func TestTicketHistory(t *testing.T) {
 
 	press(a, "esc", "esc", "j", "enter", "h") // TL-2: nothing has happened to it yet
 	expect(t, a, "History of TL-2", "No history yet.")
+}
+
+// Due dates count down by day, like the web app (TL-640).
+func TestDueCountdown(t *testing.T) {
+	now := time.Date(2026, 10, 25, 23, 30, 0, 0, time.Local)
+	for due, want := range map[string]string{
+		"2026-10-28": "due in 3 days", "2026-10-26": "due tomorrow", "2026-10-25": "due today",
+		"2026-10-24": "1 day overdue", "2026-10-20": "5 days overdue", "2027-01-01": "due in 68 days", "nope": "",
+	} {
+		if got := dueText(due, now); got != want {
+			t.Fatalf("%s: %q, want %q", due, got, want)
+		}
+	}
+	due := "2026-10-20"
+	if dueBadge(&Ticket{DueDate: &due, Done: true}, now) != "" || dueBadge(&Ticket{}, now) != "" {
+		t.Fatal("no countdown once done, or without a date")
+	}
+	// the form's field: l/h a day, L/H a week, from no date tomorrow or today, x clears
+	for _, c := range []struct{ from, key, want string }{
+		{"", "l", "2026-10-26"}, {"", "h", "2026-10-25"}, {"2026-10-31", "l", "2026-11-01"},
+		{"2026-10-25", "L", "2026-11-01"}, {"2026-10-25", "H", "2026-10-18"}, {"2026-10-25", "x", ""}, {"2026-10-25", "q", "2026-10-25"},
+	} {
+		if got := stepDue(c.from, c.key, now); got != c.want {
+			t.Fatalf("%q %s: %q, want %q", c.from, c.key, got, c.want)
+		}
+	}
+}
+
+func TestDueDatesOnScreen(t *testing.T) {
+	t.Cleanup(func() { ticketDue = nil })
+	ticketDue = time.Now().AddDate(0, 0, 3).Format(time.DateOnly)
+	a, calls := start(t)
+	expect(t, a, "due in 3 days") // My work
+	press(a, "enter")
+	expect(t, a, "due in 3 days") // the ticket's meta
+	press(a, "e")
+	expect(t, a, "Due date", ticketDue.(string))
+	press(a, "esc", "j", "j", "j", "j", "x", "ctrl+s") // to the due date, clear it
+	if c := find(*calls, "PATCH /api/tickets/t1"); !strings.Contains(c, `"due_date":""`) {
+		t.Fatalf("clear: %q", c)
+	}
 }

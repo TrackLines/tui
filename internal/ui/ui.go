@@ -545,3 +545,50 @@ func lines(rows []string, cursor, height int) string {
 	}
 	return b.String()
 }
+
+// daysUntil is whole days from now's local day to due (YYYY-MM-DD); negative once it's past (TL-640).
+func daysUntil(due string, now time.Time) (int, bool) {
+	at, err := time.Parse(time.DateOnly, due)
+	if err != nil {
+		return 0, false
+	}
+	today, _ := time.Parse(time.DateOnly, now.Format(time.DateOnly))
+	return int(at.Sub(today).Hours() / 24), true
+}
+
+// dueText counts a due date down by day, as the web app does: "due in 3 days", "due tomorrow",
+// "due today", "2 days overdue".
+func dueText(due string, now time.Time) string {
+	d, ok := daysUntil(due, now)
+	switch {
+	case !ok:
+		return ""
+	case d < -1:
+		return F("%d days overdue", -d)
+	case d == -1:
+		return T("1 day overdue")
+	case d == 0:
+		return T("due today")
+	case d == 1:
+		return T("due tomorrow")
+	}
+	return F("due in %d days", d)
+}
+
+// dueBadge is a ticket's due countdown, styled: red once overdue, highlighted today and tomorrow;
+// "" without a date or once it's done.
+func dueBadge(t *Ticket, now time.Time) string {
+	if t.DueDate == nil || t.Done {
+		return ""
+	}
+	d, ok := daysUntil(*t.DueDate, now)
+	switch {
+	case !ok:
+		return ""
+	case d < 0:
+		return warn.Render(dueText(*t.DueDate, now))
+	case d <= 1:
+		return accent.Render(dueText(*t.DueDate, now))
+	}
+	return muted.Render(dueText(*t.DueDate, now))
+}
