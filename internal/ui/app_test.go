@@ -1213,3 +1213,31 @@ func TestFooterPinnedAndCommentBoxFills(t *testing.T) {
 		t.Fatalf("after resize: %d lines, box %d high", n, c.input.Height())
 	}
 }
+
+// People no longer in the org read "Former member", like the web app, never their raw id (TL-607).
+func TestNamesOfPeopleWhoLeft(t *testing.T) {
+	a := &app{}
+	if got := a.name("user_gone"); got != "A teammate" { // the people list hasn't arrived
+		t.Fatalf("loading: %q", got)
+	}
+	a.people = map[string]string{"user_1": "Sam", "Claude": "Claude"}
+	for id, want := range map[string]string{
+		"user_1": "Sam", "user_gone": "Former member", "Claude": "Claude",
+		"claude-482193": "Claude", "agent-123456": "AI agent", "Bugfixes": "Bugfixes", "TrackLin.es": "TrackLin.es", "legacy": "Imported",
+	} {
+		if got := a.name(id); got != want {
+			t.Fatalf("%s: %q, want %q", id, got, want)
+		}
+	}
+}
+
+// A comment by someone who has left shows them as a former member.
+func TestFormerMemberOnATicket(t *testing.T) {
+	a, _ := start(t)
+	delete(a.people, "user_1")
+	press(a, "enter")
+	expect(t, a, "Former member")
+	if strings.Contains(a.View(), "user_1") {
+		t.Fatalf("raw id shown:\n%s", a.View())
+	}
+}
