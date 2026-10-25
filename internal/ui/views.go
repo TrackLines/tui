@@ -177,6 +177,9 @@ func (v *listView) render(a *app) string {
 			title = slide(t.Title, v.hscroll, titleW)
 		}
 		row := fmt.Sprintf("%-9s %s%s  %s", t.Key, title, strings.Repeat(" ", max(0, titleW-lipgloss.Width(title))), muted.Render(extras[i]))
+		if due := dueBadge(&v.items[i], time.Now()); due != "" {
+			row += " " + due
+		}
 		if p := t.Priority; p == "urgent" || p == "high" {
 			row += " " + priority(p)
 		}
@@ -929,6 +932,9 @@ func (v *ticketView) detail(a *app) string {
 	if tb := timeboxMeta(t, time.Now()); tb != "" {
 		meta = append(meta, tb)
 	}
+	if due := dueBadge(t, time.Now()); due != "" {
+		meta = append(meta, due)
+	}
 	if t.AssignedTo != nil {
 		meta = append(meta, F("assigned to %s", a.name(*t.AssignedTo)))
 	} else {
@@ -1310,9 +1316,10 @@ type formView struct {
 	project, column, scale string
 	title                  textinput.Model
 	description            vimArea
-	kind, prio, estimate   int // indexes into types, priorities and the scale (-1: not estimated)
-	timeboxDays            int // -1: not set; otherwise 0–60
-	timeboxHours           int // -1: not set; otherwise 0–23
+	kind, prio, estimate   int    // indexes into types, priorities and the scale (-1: not estimated)
+	timeboxDays            int    // -1: not set; otherwise 0–60
+	timeboxHours           int    // -1: not set; otherwise 0–23
+	due                    string // YYYY-MM-DD, or "" for none (TL-640)
 	field                  int
 	typingTitle            bool // insert mode in the title
 	pendingQ               bool // q (esc with standard keys) pressed once with something typed: again discards it
@@ -1342,6 +1349,9 @@ func (f *formView) apply(in TicketInput) {
 	if in.TimeboxHours != nil {
 		f.timeboxHours = *in.TimeboxHours
 	}
+	if in.DueDate != nil {
+		f.due = *in.DueDate
+	}
 }
 
 const (
@@ -1351,6 +1361,7 @@ const (
 	fieldEstimate
 	fieldTimeboxDays
 	fieldTimeboxHours
+	fieldDue
 	fieldDescription
 )
 
@@ -1373,6 +1384,9 @@ func newForm(t *Ticket, project, column, scale string) *formView {
 		}
 		if t.TimeboxHours != nil {
 			f.timeboxHours = *t.TimeboxHours
+		}
+		if t.DueDate != nil {
+			f.due = *t.DueDate
 		}
 	}
 	f.before = f.snapshot()
@@ -1409,11 +1423,11 @@ func (f *formView) fields() []int {
 	if types[f.kind] == "spike" {
 		fields = append(fields, fieldTimeboxDays, fieldTimeboxHours)
 	}
-	return append(fields, fieldDescription)
+	return append(fields, fieldDue, fieldDescription)
 }
 
 func (f *formView) snapshot() string {
-	return fmt.Sprintf("%s\x00%s\x00%d\x00%d\x00%d\x00%d\x00%d", f.title.Value(), f.description.Value(), f.kind, f.prio, f.estimate, f.timeboxDays, f.timeboxHours)
+	return fmt.Sprintf("%s\x00%s\x00%d\x00%d\x00%d\x00%d\x00%d\x00%s", f.title.Value(), f.description.Value(), f.kind, f.prio, f.estimate, f.timeboxDays, f.timeboxHours, f.due)
 }
 
 // focus moves d fields along. typing: start typing in a text field (tab), or not (j/k).
@@ -1460,6 +1474,15 @@ func (f *formView) input() (TicketInput, string) {
 			days, hours = 0, 0
 		}
 		in.TimeboxDays, in.TimeboxHours = &days, &hours
+	}
+	// a due date when it's been set or changed ("" clears one); left out otherwise (TL-640)
+	was := ""
+	if f.editing != nil && f.editing.DueDate != nil {
+		was = *f.editing.DueDate
+	}
+	if f.due != was {
+		due := f.due
+		in.DueDate = &due
 	}
 	return in, ""
 }
@@ -1564,6 +1587,10 @@ func (f *formView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		}
 	case "left", "right", "h", "l", " ":
 		f.choose(key)
+	case "H", "L", "x", "delete", "backspace", "shift+left", "shift+right":
+		if f.field == fieldDue {
+			f.choose(key)
+		}
 	}
 	return f, nil
 }
@@ -1590,7 +1617,33 @@ func (f *formView) choose(key string) {
 		f.timeboxDays = cycleOptional(f.timeboxDays, 60, d)
 	case fieldTimeboxHours:
 		f.timeboxHours = cycleOptional(f.timeboxHours, 23, d)
+	case fieldDue:
+		f.due = stepDue(f.due, key, time.Now())
 	}
+}
+
+// stepDue moves a due date: l/→ a day later, h/← a day earlier, L/H a week, x/delete clears it. From
+// no date, later starts tomorrow and earlier today (TL-640).
+func stepDue(due, key string, now time.Time) string {
+	days := map[string]int{"l": 1, "right": 1, " ": 1, "h": -1, "left": -1, "L": 7, "shift+right": 7, "H": -7, "shift+left": -7}
+	d, ok := days[key]
+	switch {
+	case key == "x" || key == "delete" || key == "backspace":
+		return ""
+	case !ok:
+		return due
+	case due == "":
+		today := now.Format(time.DateOnly)
+		if d > 0 {
+			return now.AddDate(0, 0, 1).Format(time.DateOnly)
+		}
+		return today
+	}
+	at, err := time.Parse(time.DateOnly, due)
+	if err != nil {
+		return ""
+	}
+	return at.AddDate(0, 0, d).Format(time.DateOnly)
 }
 
 // cycleOptional moves between "not set" (-1) and the integer range 0..max.
@@ -1617,7 +1670,8 @@ func (f *formView) standardKey(k tea.KeyMsg) (view, tea.Cmd) {
 	case fieldDescription:
 		_, cmd = f.description.update(k)
 	default:
-		if key := k.String(); key == "left" || key == "right" || key == "h" || key == "l" || key == " " {
+		if key := k.String(); key == "left" || key == "right" || key == "h" || key == "l" || key == " " ||
+			(f.field == fieldDue && (key == "shift+left" || key == "shift+right" || key == "delete" || key == "backspace")) {
 			f.choose(key)
 		}
 	}
@@ -1694,6 +1748,11 @@ func (f *formView) render(a *app) string {
 		b.WriteString(label(fieldTimeboxDays, T("Timebox days")) + "  " + choice(fieldTimeboxDays, days) + "\n")
 		b.WriteString(label(fieldTimeboxHours, T("Timebox hours")) + "  " + choice(fieldTimeboxHours, hours) + "\n")
 	}
+	due := T("no due date")
+	if f.due != "" {
+		due = f.due + "  " + dueText(f.due, time.Now())
+	}
+	b.WriteString(label(fieldDue, T("Due date")) + "  " + choice(fieldDue, due) + "\n")
 	b.WriteString("\n" + label(fieldDescription, T("Description")) + "\n" + f.description.View() + "\n" + f.mode() + "\n")
 	return b.String()
 }

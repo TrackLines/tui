@@ -55,7 +55,7 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most u
 | Project page | `j`/`k` select a board or Backlog · `enter` open · `B` (Shift+B) jump straight to Backlog |
 | Board | `h`/`l` column · `j`/`k` ticket · `enter` open · `H`/`L` move the ticket a column left/right · `n` new ticket in this column · `r` reload |
 | Ticket | `j`/`k` scroll · `e` edit · `m` move to a column · `c` comment · `a` assign to you (again: unassign) · `tab` pick a sub-ticket or file, `enter` open it · `o` open a picked file in your system's viewer (`xdg-open`; `open` on macOS) · `p` open the parent · `h` its history (each column it went through, who moved it, when; newest first) · `r` reload |
-| New / edit ticket | Typing is insert mode; `esc` leaves it. Then `tab` or `j`/`k` field · `i`/`enter` edit · `h`/`l` change type, priority, estimate, and spike timebox · `q` cancel · `ctrl+s` save (any time) |
+| New / edit ticket | Typing is insert mode; `esc` leaves it. Then `tab` or `j`/`k` field · `i`/`enter` edit · `h`/`l` change type, priority, estimate, and spike timebox · on the due date: `h`/`l` a day, `H`/`L` a week, `x` clears · `q` cancel · `ctrl+s` save (any time) |
 | Drafts (`D`) | `j`/`k` · `r` send again · `x` discard · `enter` open its ticket (`c` or `e` there picks the draft up to change it first) |
 | Board / project | `f` follows its standup / refinement, when one's running (the banner says so) |
 | Following | it moves with the host: who's here, whose turn, the ticket they have open · `esc`/`q` leave |
@@ -66,6 +66,7 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most u
 - **Mentions**, under My work, are tickets that @mention you, leaving out finished ones.
 - A search takes words or a ticket key such as `TL-123`. Results say which project, board and column each ticket is in; `/` from the results starts from the same words, and `r` retries a search that failed.
 - Boards that use estimates ask for one when you create a ticket there.
+- **Due dates** count down by day, in your local day: "due in 3 days", "due tomorrow", "due today", then "2 days overdue" (red). They show in lists and on the ticket, and go once it's done.
 - Choose `spike` to set an optional timebox in days (0–60) and hours (0–23); `not set` is available for either. Changing to another type clears the timebox.
 - **Drafts.** A comment or an edit that can't be sent (the API down, the connection gone) isn't lost: it's kept in `~/.local/state/tracklines/drafts.json` (under `$XDG_STATE_HOME` if set) until it's sent or you discard it, through restarts too, and the TUI says how many are waiting when it starts. Nothing is resent on its own: `D` lists them and `r` sends one again. A comment that got through before the connection dropped isn't posted twice, and an edit to a ticket someone has changed since isn't sent over their changes: open it and `e` shows your edit with a warning, to compare and save if you still want it.
 - `m` on a backlog ticket picks a board, then a column, then an estimate if that board sizes tickets. When a move isn't allowed (a read-only key, a sprint on its last day), the TUI says why.

@@ -43,6 +43,7 @@ type Ticket struct {
 	// a spike's timebox (TL-502): days + hours as entered; nil when not a spike or not yet timed
 	TimeboxDays  *int    `json:"timebox_days"`
 	TimeboxHours *int    `json:"timebox_hours"`
+	DueDate      *string `json:"due_date"`   // YYYY-MM-DD, or null (TL-640)
 	StartedAt    *string `json:"started_at"` // first move into In Progress; drives the timebox countdown (TL-506)
 	DoneAt       *string `json:"done_at"`
 	UpdatedAt    string  `json:"updated_at"` // an edit draft checks it before resending (TL-599)
@@ -89,6 +90,7 @@ type TicketInput struct {
 	Estimate     *string `json:"estimate,omitempty"`
 	TimeboxDays  *int    `json:"timebox_days,omitempty"`
 	TimeboxHours *int    `json:"timebox_hours,omitempty"`
+	DueDate      *string `json:"due_date,omitempty"` // "" clears it; nil leaves it (TL-640)
 }
 
 type Project struct {
