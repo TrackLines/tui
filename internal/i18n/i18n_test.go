@@ -23,7 +23,7 @@ func TestLanguageChoice(t *testing.T) {
 		{"system", "", "pt_BR.UTF-8", pt["Saved."]},
 		{"system", "", "es_MX", es["Saved."]},
 		{"system", "", "fr_CA.UTF-8", fr["Saved."]},
-		{"system", "", "tlh", "Saved."}, // Klingon is chosen, never picked for you (TL-609)
+		{"system", "", "tlh", tlh["Saved."]}, // Klingon, for fun (TL-609)
 		{"tlh", "", "en_GB.UTF-8", tlh["Saved."]},
 		{"system", "", "C", "Saved."},
 		{"system", "", "", "Saved."},

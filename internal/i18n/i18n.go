@@ -12,9 +12,6 @@ import (
 // catalogs: English text → the language's; a language not here is English.
 var catalogs = map[string]map[string]string{"nl": nl, "de": de, "es": es, "pt": pt, "fr": fr, "tlh": tlh}
 
-// hidden languages are only ever chosen in the config, never picked from the locale (an easter egg).
-var hidden = map[string]bool{"tlh": true}
-
 var current map[string]string // nil: English
 
 // Set picks the language: en, nl, or system (the locale, else English). Unknown is English.
@@ -34,7 +31,7 @@ func Locale() string {
 			continue
 		}
 		lang := strings.ToLower(strings.FieldsFunc(v, func(r rune) bool { return r == '_' || r == '.' || r == '-' || r == '@' })[0])
-		if _, ok := catalogs[lang]; ok && !hidden[lang] {
+		if _, ok := catalogs[lang]; ok {
 			return lang
 		}
 		return "en"

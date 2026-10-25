@@ -1,6 +1,6 @@
 package i18n
 
-// tlh is Klingon (an easter egg: only chosen in the config): English text → its translation. A missing entry shows the English (i18n_test finds it).
+// tlh is Klingon, for fun: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var tlh = map[string]string{
 	"%d days":          "%d jaj",
 	"%d hours":         "%d rep",

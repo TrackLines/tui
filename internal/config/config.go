@@ -23,7 +23,7 @@ type Settings struct {
 	// UpdateCheck: a release build looks for a newer release when it starts.
 	UpdateCheck bool
 	// Language the TUI speaks: system (your locale, when it's one the TUI has; else English), en, nl,
-	// de, es, pt (Brazilian) or fr (TL-604, TL-613); tlh is Klingon, an easter egg (TL-609). Ticket
+	// de, es, pt (Brazilian) or fr (TL-604, TL-613); tlh is Klingon, for fun (TL-609). Ticket
 	// text is never translated.
 	Language string
 }

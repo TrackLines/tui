@@ -30,4 +30,5 @@ update_check = on
 #   es      Español
 #   pt      Português (Brasil)
 #   fr      Français
+#   tlh     tlhIngan Hol (Klingon)
 language = system

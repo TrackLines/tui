@@ -85,7 +85,7 @@ mkdir -p ~/.config/tracklines && cp config.example ~/.config/tracklines/config
 | `backlog_sort` | The order a backlog opens in: `manual` (the backlog's own order, the default), `newest` or `oldest`. `s` still cycles from there. |
 | `reports` | `on` (the default) sends the TUI's own failures to Bugfixes; `off` doesn't. Never your key, searches or what you wrote. |
 | `update_check` | `on` (the default): a release build looks for a newer release when it starts. `off` doesn't. |
-| `language` | `system` (the default): your locale (`LC_ALL`, `LC_MESSAGES`, `LANG`), when it's a language the TUI has, else English. `en` English, `nl` Nederlands, `de` Deutsch, `es` Español, `pt` Português (Brasil), `fr` Français. Only the TUI's own words change: tickets, comments, names and keys stay as written. |
+| `language` | `system` (the default): your locale (`LC_ALL`, `LC_MESSAGES`, `LANG`), when it's a language the TUI has, else English. `en` English, `nl` Nederlands, `de` Deutsch, `es` Español, `pt` Português (Brasil), `fr` Français, `tlh` tlhIngan Hol (Klingon, for fun). Only the TUI's own words change: tickets, comments, names and keys stay as written. |
 
 `?` shows which is in use.
 
@@ -100,7 +100,7 @@ Everything else is in the config. These two stay as environment variables: the k
 
 ## Translations
 
-The TUI's text is English in the code, wrapped in `T` (a text) or `F` (a format); each language has a catalog in `internal/i18n` (`nl.go`, `de.go`, …). Another language is one more catalog file there and a line in `catalogs`. `go test ./internal/i18n` fails on any text that's shown without `T`/`F` or missing from a catalog, so nothing slips through untranslated. There may also be a language you can only find by knowing its ISO code.
+The TUI's text is English in the code, wrapped in `T` (a text) or `F` (a format); each language has a catalog in `internal/i18n` (`nl.go`, `de.go`, …). Another language is one more catalog file there and a line in `catalogs`. `go test ./internal/i18n` fails on any text that's shown without `T`/`F` or missing from a catalog, so nothing slips through untranslated.
 
 ## Development
 
