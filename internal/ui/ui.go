@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -316,13 +317,31 @@ func (a *app) quit() tea.Cmd {
 // rows is how many lines a screen's body can use.
 func (a *app) rows() int { return max(3, a.height-6) }
 
-// name is a person's name, or what was recorded (an agent's key name) when we don't know them.
+// name is a person's name, as the web app shows it (frontend lib/people.ts): someone no longer in
+// the org is a "Former member" (TL-607), "A teammate" until the people list arrives; agent and
+// integration keys are what was recorded, a generated agent key name ("claude-482193") the agent.
 func (a *app) name(id string) string {
 	if n, ok := a.people[id]; ok {
 		return n
 	}
-	return id
+	switch {
+	case id == "legacy":
+		return "Imported"
+	case !strings.HasPrefix(id, "user_"):
+		if m := generatedAgent.FindStringSubmatch(id); m != nil {
+			if m[1] == "agent" {
+				return "AI agent"
+			}
+			return strings.ToUpper(m[1][:1]) + m[1][1:]
+		}
+		return id
+	case a.people == nil:
+		return "A teammate"
+	}
+	return "Former member"
 }
+
+var generatedAgent = regexp.MustCompile(`^(claude|codex|cursor|copilot|gemini|agent)-\d{6}$`)
 
 func priority(p string) string {
 	if s, ok := urgency[p]; ok {
