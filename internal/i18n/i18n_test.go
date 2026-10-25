@@ -18,7 +18,13 @@ func TestLanguageChoice(t *testing.T) {
 		{"en", "", "nl_NL.UTF-8", "Saved."},
 		{"system", "", "nl_NL.UTF-8", "Opgeslagen."},
 		{"system", "nl_BE", "en_GB.UTF-8", "Opgeslagen."}, // LC_ALL wins
-		{"system", "", "de_DE.UTF-8", "Saved."},           // no German: English
+		{"system", "", "it_IT.UTF-8", "Saved."},           // no Italian: English
+		{"system", "", "de_AT.UTF-8", de["Saved."]},       // TL-613
+		{"system", "", "pt_BR.UTF-8", pt["Saved."]},
+		{"system", "", "es_MX", es["Saved."]},
+		{"system", "", "fr_CA.UTF-8", fr["Saved."]},
+		{"system", "", "tlh", tlh["Saved."]}, // Klingon, for fun (TL-609)
+		{"tlh", "", "en_GB.UTF-8", tlh["Saved."]},
 		{"system", "", "C", "Saved."},
 		{"system", "", "", "Saved."},
 		{"klingon", "", "nl_NL.UTF-8", "Saved."}, // config.Load already refuses it; English anyway
@@ -91,8 +97,10 @@ func TestEveryTextIsTranslated(t *testing.T) {
 						if lit, ok := n.Args[0].(*ast.BasicLit); ok && lit.Kind == token.STRING {
 							translated[lit] = true
 							s, _ := strconv.Unquote(lit.Value)
-							if _, ok := nl[s]; !ok {
-								t.Errorf("%s: no Dutch for %q", fset.Position(lit.Pos()), s)
+							for lang, catalog := range catalogs {
+								if _, ok := catalog[s]; !ok {
+									t.Errorf("%s: no %s for %q", fset.Position(lit.Pos()), lang, s)
+								}
 							}
 						}
 					}
@@ -110,6 +118,20 @@ func TestEveryTextIsTranslated(t *testing.T) {
 				}
 				return true
 			})
+		}
+	}
+}
+
+var verbs = regexp.MustCompile(`%[-+# 0-9.]*[a-zA-Z%]`)
+
+// Each translation takes the same values, in the same order, as its English: Sprintf is positional.
+func TestTranslationsKeepTheirVerbs(t *testing.T) {
+	for lang, catalog := range catalogs {
+		for en, tr := range catalog {
+			want, got := strings.Join(verbs.FindAllString(en, -1), " "), strings.Join(verbs.FindAllString(tr, -1), " ")
+			if want != got {
+				t.Errorf("%s %q → %q: verbs %q, want %q", lang, en, tr, got, want)
+			}
 		}
 	}
 }

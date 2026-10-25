@@ -10,7 +10,7 @@ import (
 )
 
 // catalogs: English text → the language's; a language not here is English.
-var catalogs = map[string]map[string]string{"nl": nl}
+var catalogs = map[string]map[string]string{"nl": nl, "de": de, "es": es, "pt": pt, "fr": fr, "tlh": tlh}
 
 var current map[string]string // nil: English
 
