@@ -62,7 +62,7 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most u
 - **My work** is your open tickets on every board and project, the same list as the web app.
 - **Tabs 3–5** are the projects you open most, so you can jump straight in. The TUI keeps the count on your machine only, in `~/.local/state/tracklines/projects.json`, and the tabs reorder when you go back to My work or Projects, never while you're on one.
 - **Mentions**, under My work, are tickets that @mention you, leaving out finished ones.
-- A search takes words or a ticket key such as `TL-123`.
+- A search takes words or a ticket key such as `TL-123`. Results say which project, board and column each ticket is in; `/` from the results starts from the same words, and `r` retries a search that failed.
 - Boards that use estimates ask for one when you create a ticket there.
 - Choose `spike` to set an optional timebox in days (0–60) and hours (0–23); `not set` is available for either. Changing to another type clears the timebox.
 - Backlog tickets are put on a board in the web app, where the sprint capacity checks are.
