@@ -30,6 +30,7 @@ var (
 func fakeAPI(t *testing.T) (*Client, *[]string) {
 	var calls []string
 	var mu sync.Mutex
+	flaky := 0 // searches for "flaky": the first fails
 	ticket := func(id string) map[string]any {
 		if id == "t2" {
 			return map[string]any{"id": "t2", "key": "TL-2", "title": "Idea", "project_id": "p1"}
@@ -88,8 +89,14 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 			return
 		case p == "/api/search" && r.URL.Query().Get("creator") == "me":
 			out = []any{map[string]any{"id": "t2", "key": "TL-2", "title": "Idea"}} // Created by me
+		case p == "/api/search" && r.URL.Query().Get("q") == "nothing":
+			out = []any{}
+		case p == "/api/search" && r.URL.Query().Get("q") == "flaky" && flaky == 0:
+			flaky++
+			http.Error(w, "search is down", http.StatusBadGateway)
+			return
 		case p == "/api/search":
-			out = []any{ticket("t1"), map[string]any{"id": "t2", "key": "TL-2", "title": "Idea"}}
+			out = []any{map[string]any{"id": "t1", "key": "TL-1", "title": "Fix login", "project_name": "TrackLines", "board_name": "Web", "column_name": "To do"}, map[string]any{"id": "t2", "key": "TL-2", "title": "Idea"}}
 		case p == "/api/ticket-keys/TL-1":
 			out = ticket("t1")
 		case strings.HasPrefix(p, "/api/ticket-keys/"):
@@ -163,6 +170,8 @@ func press(a *app, keys ...string) {
 			msg = tea.KeyMsg{Type: tea.KeyRight}
 		case "ctrl+s":
 			msg = tea.KeyMsg{Type: tea.KeyCtrlS}
+		case "ctrl+u":
+			msg = tea.KeyMsg{Type: tea.KeyCtrlU}
 		default:
 			msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)}
 		}
@@ -561,6 +570,45 @@ func TestGotoAndGlobalSearch(t *testing.T) {
 	expect(t, a, "There’s no ticket TL-999.", "Go to a ticket")
 	press(a, "esc", "t", "308", "enter")
 	expect(t, a, "A ticket key, like TL-308.")
+}
+
+// / searches every project the key can see (the API scopes it); results say where each ticket is,
+// open, and esc comes back to them; / again starts from the same words.
+func TestSearchResults(t *testing.T) {
+	a, calls := start(t)
+	press(a, "/", "tl-1", "enter") // a key: the API puts its ticket first
+	if c := find(*calls, "GET /api/search"); !strings.HasPrefix(c, "GET /api/search?limit=50&q=tl-1 ") {
+		t.Fatalf("search request: %q", c)
+	}
+	expect(t, a, "Search: tl-1", "TL-1", "Fix login", "TrackLines · Web · To do", "TL-2", "r retry")
+	press(a, "j", "enter")
+	expect(t, a, "Idea")
+	press(a, "esc")
+	expect(t, a, "Search: tl-1", "TL-2")
+	press(a, "/")
+	expect(t, a, "/ tl-1") // the same words, to change
+	press(a, "esc", "q")
+	expect(t, a, "My work")
+}
+
+func TestSearchEmptyAndFailing(t *testing.T) {
+	a, calls := start(t)
+	press(a, "/", "nothing", "enter")
+	expect(t, a, "No tickets match “nothing”.")
+	press(a, "/", "ctrl+u", "flaky", "enter")
+	expect(t, a, "The search didn’t work.", "r to try again", "search is down")
+	n := len(*calls)
+	press(a, "r")
+	if !strings.Contains(strings.Join((*calls)[n:], "\n"), "q=flaky") {
+		t.Fatalf("retry: %v", (*calls)[n:])
+	}
+	expect(t, a, "Search: flaky", "TL-1")
+	// still loading: says so rather than "no tickets"
+	v := &listView{heading: "Search: x", query: "x"}
+	a.loading = true
+	if !strings.Contains(v.render(a), "Searching…") {
+		t.Fatalf("loading: %s", v.render(a))
+	}
 }
 
 // The comment box and the ticket form work like vim: esc leaves insert mode instead of throwing the

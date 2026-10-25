@@ -132,13 +132,25 @@ func (v *listView) render(a *app) string {
 		}
 	}
 	b.WriteString("\n\n")
+	if v.query != "" && !v.loaded { // the search failed: loadedMsg's error is in the status line
+		if a.loading {
+			return b.String() + muted.Render("Searching…") + "\n"
+		}
+		return b.String() + warn.Render("The search didn’t work.") + muted.Render(" r to try again") + "\n"
+	}
 	if len(v.items) == 0 {
+		if v.query != "" {
+			return b.String() + muted.Render("No tickets match “"+v.query+"”.") + "\n"
+		}
 		return b.String() + muted.Render("Nothing here.") + "\n"
 	}
 	extras := make([]string, len(v.items))
 	widest, longest := 0, 0
 	for i, t := range v.items {
 		extras[i] = where(t)
+		if v.query != "" && t.ProjectName != "" { // a search spans projects
+			extras[i] = t.ProjectName + " · " + extras[i]
+		}
 		if v.project != "" {
 			extras[i] = strings.Join(t.Labels, ", ")
 		}
@@ -199,7 +211,7 @@ func (v *listView) help() string {
 		h = "j/k move · h/l scroll title · enter open · n new ticket · s sort · f labels · esc/q back · Q quit"
 	}
 	if v.query != "" {
-		h = "j/k move · h/l scroll title · enter open · / search again · esc/q back · Q quit"
+		h = "j/k move · h/l scroll title · enter open · / search again · r retry · esc/q back · Q quit"
 	}
 	return h
 }
@@ -365,8 +377,10 @@ func (v *homeView) typing() bool { return false }
 // searchView asks what to look for, then shows the results in its place.
 type searchView struct{ input textinput.Model }
 
-func newSearch() *searchView {
+// newSearch starts from q: the last search, when searching again from its results.
+func newSearch(q string) *searchView {
 	in := textinput.New()
+	in.SetValue(q)
 	in.Placeholder = "words or a key (TL-123)"
 	in.Prompt = "/ "
 	in.Focus()
