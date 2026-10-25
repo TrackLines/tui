@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/tracklines/tui/internal/drafts"
 	"github.com/tracklines/tui/internal/update"
 	"github.com/tracklines/tui/internal/usage"
 )
@@ -48,6 +49,7 @@ type app struct {
 	latest        *update.Release // a newer release than this one, when there is
 	updated       string          // the release just installed: restart to use it
 	usage         usage.Projects
+	drafts        drafts.Store      // comments and edits that didn't reach the server (TL-599)
 	favourites    []usage.Favourite // tabs 3–5: the projects you open most (TL-477)
 }
 
@@ -65,6 +67,11 @@ type (
 		text string
 		err  error
 	}
+	keptMsg struct{ d drafts.Draft } // a send failed; keep its draft
+	sentMsg struct {                 // a draft's change reached the server
+		kind, ticket, status string
+		pop                  bool // leave the screen it was sent from
+	}
 	peopleMsg struct {
 		people map[string]string
 		me     string
@@ -72,8 +79,15 @@ type (
 )
 
 func newApp(api *Client) *app {
-	a := &app{api: api, usage: usage.Load()}
+	a := &app{api: api, usage: usage.Load(), drafts: drafts.Load()}
 	a.favourites = a.usage.Top(3)
+	if n := len(a.drafts); n > 0 {
+		word := "drafts"
+		if n == 1 {
+			word = "draft"
+		}
+		a.status = warn.Render(fmt.Sprintf("%d unsent %s", n, word)) + muted.Render(" · D to see them")
+	}
 	a.stack = []view{a.tabView(0)}
 	return a
 }
@@ -189,6 +203,19 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return a, nil
 		}
+	case keptMsg: // a send failed: the text is kept, to send again when asked
+		a.drafts.Put(msg.d)
+		a.loading = false
+		a.status = warn.Render(msg.d.Error) + muted.Render(" · kept as a draft: D to see drafts")
+		if msg.d.Conflict {
+			a.status = warn.Render(msg.d.Key + " changed since your edit: open it and e to compare, nothing was overwritten")
+		}
+	case sentMsg:
+		a.drafts.Remove(msg.kind, msg.ticket)
+		if msg.pop {
+			return a, msgOf(popMsg{ok.Render(msg.status)})
+		}
+		a.loading, a.status = false, ok.Render(msg.status)
 	case statusMsg:
 		if msg.err != nil {
 			a.loading, a.status = false, warn.Render(msg.err.Error())
@@ -231,6 +258,10 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "?":
 				if _, already := a.top().(*aboutView); !already {
 					return a, msgOf(pushMsg{&aboutView{}})
+				}
+			case "D": // unsent comments and edits
+				if _, already := a.top().(*draftsView); !already {
+					return a, msgOf(pushMsg{&draftsView{sending: map[string]bool{}}})
 				}
 			case "t": // go to a ticket by its key
 				return a, msgOf(pushMsg{newGoto()})

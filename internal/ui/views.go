@@ -18,6 +18,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/tracklines/tui/internal/api"
+	"github.com/tracklines/tui/internal/drafts"
 )
 
 // listView is a list of tickets: My work, Mentions, a search, or a project's backlog (which can take
@@ -937,6 +938,12 @@ func (v *ticketView) detail(a *app) string {
 		meta = append(meta, ok.Render("done"))
 	}
 	b.WriteString(muted.Render(strings.Join(meta, " · ")) + "\n")
+	if _, ok := a.drafts.Get(drafts.Comment, t.ID); ok {
+		b.WriteString(warn.Render("Unsent comment") + muted.Render(": c to finish it") + "\n")
+	}
+	if _, ok := a.drafts.Get(drafts.Edit, t.ID); ok {
+		b.WriteString(warn.Render("Unsent edit") + muted.Render(": e to finish it") + "\n")
+	}
 	if t.Parent != nil {
 		b.WriteString(muted.Render("parent: ") + t.Parent.Title + muted.Render(" (p to open)") + "\n")
 	}
@@ -1247,6 +1254,9 @@ func newComment(t Ticket) *commentView { return &commentView{t, newVimArea("Your
 
 func (v *commentView) load(a *app) tea.Cmd {
 	a.loading = false
+	if d, ok := a.drafts.Get(drafts.Comment, v.ticket.ID); ok && v.input.Value() == "" {
+		v.input.SetValue(d.Body) // pick up where the failed send left off
+	}
 	v.size(a)
 	return textarea.Blink
 }
@@ -1263,16 +1273,12 @@ func (v *commentView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	case vimCancel:
 		return v, msgOf(popMsg{})
 	case vimSend:
-		body, id := strings.TrimSpace(v.input.Value()), v.ticket.ID
+		body := strings.TrimSpace(v.input.Value())
 		if body == "" {
 			return v, nil
 		}
-		return v, func() tea.Msg {
-			if err := a.api.Comment(context.Background(), id, body); err != nil {
-				return statusMsg{err: err}
-			}
-			return popMsg{ok.Render("Comment added.")}
-		}
+		d := drafts.Draft{Kind: drafts.Comment, TicketID: v.ticket.ID, Key: v.ticket.Key, Title: v.ticket.Title, Body: body, Tried: time.Now()}
+		return v, func() tea.Msg { return sendDraft(a, d, true) }
 	}
 	return v, cmd
 }
@@ -1307,6 +1313,30 @@ type formView struct {
 	pendingQ               bool // q (esc with standard keys) pressed once with something typed: again discards it
 	cmd                    cmdLine
 	before                 string // the full form state as it started, to tell if anything changed
+	fromDraft, conflict    bool   // filled from an unsent edit; the ticket changed since it was made
+}
+
+func idOf(t *Ticket) string {
+	if t == nil {
+		return ""
+	}
+	return t.ID
+}
+
+// apply fills the form from an unsent edit.
+func (f *formView) apply(in TicketInput) {
+	f.title.SetValue(in.Title)
+	f.description.SetValue(in.Description)
+	f.kind, f.prio = max(0, indexOf(types, in.Type)), max(0, indexOf(priorities, in.Priority))
+	if in.Estimate != nil {
+		f.estimate = indexOf(api.Scales[f.scale], *in.Estimate)
+	}
+	if in.TimeboxDays != nil {
+		f.timeboxDays = *in.TimeboxDays
+	}
+	if in.TimeboxHours != nil {
+		f.timeboxHours = *in.TimeboxHours
+	}
 }
 
 const (
@@ -1357,6 +1387,10 @@ func indexOf[T comparable](list []T, s T) int {
 
 func (f *formView) load(a *app) tea.Cmd {
 	a.loading = false
+	if d, ok := a.drafts.Get(drafts.Edit, idOf(f.editing)); ok && f.editing != nil && d.Input != nil && !f.fromDraft {
+		f.apply(*d.Input) // the edit that didn't save; before stays the ticket as it is, so it's unsaved
+		f.fromDraft, f.conflict = true, d.Base != "" && d.Base != f.editing.UpdatedAt
+	}
 	f.description.SetWidth(max(20, a.width-2))
 	f.description.SetHeight(max(3, a.rows()-11))
 	return textinput.Blink
@@ -1431,14 +1465,10 @@ func (f *formView) save(a *app) tea.Cmd {
 		a.status = warn.Render(problem)
 		return nil
 	}
-	if f.editing != nil {
-		id := f.editing.ID
-		return func() tea.Msg {
-			if err := a.api.Update(context.Background(), id, in); err != nil {
-				return statusMsg{err: err}
-			}
-			return popMsg{ok.Render("Saved.")}
-		}
+	if t := f.editing; t != nil {
+		// based on the ticket as this form loaded it: saving here is the person's own call, even over a conflict
+		d := drafts.Draft{Kind: drafts.Edit, TicketID: t.ID, Key: t.Key, Title: t.Title, Input: &in, Base: t.UpdatedAt, Tried: time.Now()}
+		return func() tea.Msg { return sendDraft(a, d, true) }
 	}
 	project, column := f.project, f.column
 	return func() tea.Msg {
@@ -1629,8 +1659,14 @@ func (f *formView) render(a *app) string {
 		est = api.Scales[f.scale][f.estimate]
 	}
 	var b strings.Builder
-	b.WriteString(accent.Render(head) + "\n\n")
-	b.WriteString(label(fieldTitle, "Title") + "\n" + f.title.View() + "\n\n")
+	b.WriteString(accent.Render(head) + "\n")
+	switch {
+	case f.conflict:
+		b.WriteString(warn.Render("Your unsent edit, but "+f.editing.Key+" has changed since: saving replaces those changes. esc to look at it first (your edit stays a draft).") + "\n")
+	case f.fromDraft:
+		b.WriteString(muted.Render("Your unsent edit, as you left it.") + "\n")
+	}
+	b.WriteString("\n" + label(fieldTitle, "Title") + "\n" + f.title.View() + "\n\n")
 	b.WriteString(label(fieldType, "Type") + "  " + choice(fieldType, types[f.kind]) + "\n")
 	b.WriteString(label(fieldPriority, "Priority") + "  " + choice(fieldPriority, priorities[f.prio]) + "\n")
 	if api.Scales[f.scale] != nil {
@@ -1732,3 +1768,125 @@ func (v *labelsView) help() string {
 	return "j/k move · space toggle · c clear · enter apply · esc cancel"
 }
 func (v *labelsView) typing() bool { return false }
+
+// sendDraft sends a comment or an edit. Sent, its draft goes; failed, it's kept (keptMsg) to send
+// again from D. pop: leave the screen it was written on once it's sent.
+func sendDraft(a *app, d drafts.Draft, pop bool) tea.Msg {
+	ctx := context.Background()
+	var err error
+	status := "Comment added."
+	if d.Kind == drafts.Edit {
+		err, status = a.api.Update(ctx, d.TicketID, *d.Input), "Saved."
+	} else {
+		err = a.api.Comment(ctx, d.TicketID, d.Body)
+	}
+	if err != nil {
+		d.Error, d.Conflict = err.Error(), false
+		return keptMsg{d}
+	}
+	return sentMsg{d.Kind, d.TicketID, status, pop}
+}
+
+// retryDraft sends a draft again, safely: a comment that got through before the connection dropped
+// isn't posted twice, and an edit to a ticket that has changed since isn't sent over those changes.
+func retryDraft(a *app, d drafts.Draft) tea.Msg {
+	ctx := context.Background()
+	switch d.Kind {
+	case drafts.Comment:
+		comments, err := a.api.Comments(ctx, d.TicketID)
+		if err != nil {
+			d.Error = err.Error()
+			return keptMsg{d}
+		}
+		if d.Sent(comments) {
+			return sentMsg{d.Kind, d.TicketID, "Already sent: " + d.Key + " has that comment.", false}
+		}
+	case drafts.Edit:
+		t, err := a.api.Ticket(ctx, d.TicketID)
+		if err != nil {
+			d.Error = err.Error()
+			return keptMsg{d}
+		}
+		if d.Base != "" && t.UpdatedAt != d.Base {
+			d.Error, d.Conflict = "changed since your edit", true
+			return keptMsg{d}
+		}
+	}
+	msg := sendDraft(a, d, false)
+	if s, sent := msg.(sentMsg); sent {
+		s.status = "Sent to " + d.Key + "."
+		return s
+	}
+	return msg
+}
+
+// draftsView lists the comments and edits that didn't reach the server: r sends one again, x
+// discards it, enter opens its ticket (c or e there picks it up to change it first).
+type draftsView struct {
+	cursor  int
+	sending map[string]bool
+}
+
+func (v *draftsView) load(a *app) tea.Cmd {
+	a.loading = false
+	return nil
+}
+
+func (v *draftsView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
+	list := a.drafts.List()
+	switch msg := msg.(type) {
+	case keptMsg:
+		delete(v.sending, msg.d.ID())
+	case sentMsg:
+		delete(v.sending, msg.kind+":"+msg.ticket)
+	case tea.KeyMsg:
+		if cursorKeys(msg.String(), &v.cursor, len(list)) || len(list) == 0 {
+			return v, nil
+		}
+		d := list[min(v.cursor, len(list)-1)]
+		switch msg.String() {
+		case "enter":
+			return v, msgOf(pushMsg{&ticketView{id: d.TicketID}})
+		case "r":
+			if v.sending[d.ID()] {
+				return v, nil
+			}
+			v.sending[d.ID()] = true
+			return v, func() tea.Msg { return retryDraft(a, d) }
+		case "x":
+			a.drafts.Remove(d.Kind, d.TicketID)
+			a.status = ok.Render("Draft discarded.")
+		}
+	}
+	v.cursor = min(v.cursor, max(len(a.drafts)-1, 0))
+	return v, nil
+}
+
+func (v *draftsView) render(a *app) string {
+	head := accent.Render("Unsent drafts") + muted.Render("  kept in "+drafts.Path()) + "\n\n"
+	list := a.drafts.List()
+	if len(list) == 0 {
+		return head + muted.Render("Nothing waiting: every comment and edit was sent.") + "\n"
+	}
+	rows := make([]string, len(list))
+	for i, d := range list {
+		state := warn.Render("not sent: " + d.Error)
+		switch {
+		case v.sending[d.ID()]:
+			state = muted.Render("sending…")
+		case d.Conflict:
+			state = warn.Render("conflict: the ticket changed since · open it and e to compare")
+		}
+		what := d.Body
+		if d.Kind == drafts.Edit {
+			what = "edit: " + d.Input.Title
+		}
+		rows[i] = fmt.Sprintf("%-9s %s  %s", d.Key, cut(strings.ReplaceAll(what, "\n", " "), 40), state)
+	}
+	return head + lines(rows, v.cursor, a.rows()-3)
+}
+
+func (v *draftsView) help() string {
+	return "j/k move · r send again · x discard · enter open ticket · esc/q back"
+}
+func (v *draftsView) typing() bool { return false }

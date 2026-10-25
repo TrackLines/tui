@@ -77,6 +77,7 @@ func (v *aboutView) render(a *app) string {
 		{"1 / 2", "My work (Created by me, Mentions) / Projects"},
 		{"/", "search everything"},
 		{"t", "go to a ticket by its key (TL-308)"},
+		{"D", "unsent drafts: comments and edits that didn't reach the server"},
 		{"esc / q", "back (q quits on My work and Projects)"},
 		{"Q", "quit from anywhere"},
 		{"?", "this screen"},
