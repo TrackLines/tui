@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/tracklines/tui/internal/drafts"
 	"github.com/tracklines/tui/internal/update"
 	"github.com/tracklines/tui/internal/usage"
 )
@@ -49,6 +50,7 @@ type app struct {
 	latest        *update.Release // a newer release than this one, when there is
 	updated       string          // the release just installed: restart to use it
 	usage         usage.Projects
+	drafts        drafts.Store      // comments and edits that didn't reach the server (TL-599)
 	favourites    []usage.Favourite // tabs 3–5: the projects you open most (TL-477)
 }
 
@@ -66,6 +68,11 @@ type (
 		text string
 		err  error
 	}
+	keptMsg struct{ d drafts.Draft } // a send failed; keep its draft
+	sentMsg struct {                 // a draft's change reached the server
+		kind, ticket, status string
+		pop                  bool // leave the screen it was sent from
+	}
 	peopleMsg struct {
 		people map[string]string
 		me     string
@@ -73,15 +80,22 @@ type (
 )
 
 func newApp(api *Client) *app {
-	a := &app{api: api, usage: usage.Load()}
+	a := &app{api: api, usage: usage.Load(), drafts: drafts.Load()}
 	a.favourites = a.usage.Top(3)
+	if n := len(a.drafts); n > 0 {
+		msg := F("%d unsent drafts", n)
+		if n == 1 {
+			msg = T("1 unsent draft")
+		}
+		a.status = warn.Render(msg) + muted.Render(" · "+T("D to see them"))
+	}
 	a.stack = []view{a.tabView(0)}
 	return a
 }
 
 // tabs are My work, Projects, and then your most used projects (TL-477).
 func (a *app) tabs() []string {
-	out := []string{"My work", "Projects"}
+	out := []string{T("My work"), T("Projects")}
 	for _, f := range a.favourites {
 		out = append(out, cut(f.Name, 18))
 	}
@@ -190,6 +204,19 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return a, nil
 		}
+	case keptMsg: // a send failed: the text is kept, to send again when asked
+		a.drafts.Put(msg.d)
+		a.loading = false
+		a.status = warn.Render(msg.d.Error) + muted.Render(" · "+T("kept as a draft: D to see drafts"))
+		if msg.d.Conflict {
+			a.status = warn.Render(F("%s changed since your edit: open it and e to compare, nothing was overwritten", msg.d.Key))
+		}
+	case sentMsg:
+		a.drafts.Remove(msg.kind, msg.ticket)
+		if msg.pop {
+			return a, msgOf(popMsg{ok.Render(msg.status)})
+		}
+		a.loading, a.status = false, ok.Render(msg.status)
 	case statusMsg:
 		if msg.err != nil {
 			a.loading, a.status = false, warn.Render(msg.err.Error())
@@ -233,6 +260,10 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if _, already := a.top().(*aboutView); !already {
 					return a, msgOf(pushMsg{&aboutView{}})
 				}
+			case "D": // unsent comments and edits
+				if _, already := a.top().(*draftsView); !already {
+					return a, msgOf(pushMsg{&draftsView{sending: map[string]bool{}}})
+				}
 			case "t": // go to a ticket by its key
 				return a, msgOf(pushMsg{newGoto()})
 			case "esc", "backspace":
@@ -258,12 +289,12 @@ func (a *app) View() string {
 	}
 	foot := muted.Render(a.top().help())
 	if a.loading {
-		foot = muted.Render("Loading…  ") + foot
+		foot = muted.Render(T("Loading…")+"  ") + foot
 	} else if a.status != "" {
 		foot = a.status + "\n" + foot
 	}
 	if a.latest != nil {
-		head = append(head, ok.Render(" "+a.latest.Tag+" is out · ? to update"))
+		head = append(head, ok.Render(" "+F("%s is out · ? to update", a.latest.Tag)))
 	}
 	body := strings.Join(head, " ") + "\n\n" + strings.TrimRight(a.top().render(a), "\n")
 	// the footer sits on the window's last lines, not wherever the screen happens to end (TL-523)
@@ -291,42 +322,45 @@ func (a *app) rows() int { return max(3, a.height-6) }
 // integration keys are what was recorded, a generated agent key name ("claude-482193") the agent.
 func (a *app) name(id string) string {
 	if n, ok := a.people[id]; ok {
+		if n == "You" { // the API calls the viewer that, in English
+			return T("You")
+		}
 		return n
 	}
 	switch {
 	case id == "legacy":
-		return "Imported"
+		return T("Imported")
 	case !strings.HasPrefix(id, "user_"):
 		if m := generatedAgent.FindStringSubmatch(id); m != nil {
 			if m[1] == "agent" {
-				return "AI agent"
+				return T("AI agent")
 			}
 			return strings.ToUpper(m[1][:1]) + m[1][1:]
 		}
 		return id
 	case a.people == nil:
-		return "A teammate"
+		return T("A teammate")
 	}
-	return "Former member"
+	return T("Former member")
 }
 
 var generatedAgent = regexp.MustCompile(`^(claude|codex|cursor|copilot|gemini|agent)-\d{6}$`)
 
 func priority(p string) string {
 	if s, ok := urgency[p]; ok {
-		return s.Render(p)
+		return s.Render(T(p))
 	}
-	return p
+	return T(p)
 }
 
 // timeboxLabel renders a spike's timebox as "1d 4h" (TL-502); "" when it isn't set.
 func timeboxLabel(days, hours *int) string {
 	var parts []string
 	if days != nil && *days > 0 {
-		parts = append(parts, fmt.Sprintf("%dd", *days))
+		parts = append(parts, F("%dd", *days))
 	}
 	if hours != nil && *hours > 0 {
-		parts = append(parts, fmt.Sprintf("%dh", *hours))
+		parts = append(parts, F("%dh", *hours))
 	}
 	return strings.Join(parts, " ")
 }
@@ -380,7 +414,7 @@ func timeboxMeta(t *Ticket, now time.Time) string {
 	if label == "" {
 		return ""
 	}
-	out := "timebox " + label
+	out := F("timebox %s", label)
 	if t.StartedAt == nil { // not In Progress yet
 		return out
 	}
@@ -399,11 +433,11 @@ func timeboxMeta(t *Ticket, now time.Time) string {
 	remaining := budget - elapsed
 	switch {
 	case remaining < 0:
-		return out + " · over by " + formatDuration(-remaining)
+		return out + " · " + F("over by %s", formatDuration(-remaining))
 	case t.DoneAt != nil:
-		return out + " · within, " + formatDuration(remaining) + " spare"
+		return out + " · " + F("within, %s spare", formatDuration(remaining))
 	default:
-		return out + " · " + formatDuration(remaining) + " left"
+		return out + " · " + F("%s left", formatDuration(remaining))
 	}
 }
 
@@ -417,16 +451,16 @@ func formatDuration(mins int) string {
 	m := mins % 60
 	var parts []string
 	if d > 0 {
-		parts = append(parts, fmt.Sprintf("%dd", d))
+		parts = append(parts, F("%dd", d))
 	}
 	if h > 0 {
-		parts = append(parts, fmt.Sprintf("%dh", h))
+		parts = append(parts, F("%dh", h))
 	}
 	if m > 0 && d == 0 {
-		parts = append(parts, fmt.Sprintf("%dm", m))
+		parts = append(parts, F("%dm", m))
 	}
 	if len(parts) == 0 {
-		return "0m"
+		return F("%dm", 0)
 	}
 	return strings.Join(parts, " ")
 }
@@ -434,7 +468,7 @@ func formatDuration(mins int) string {
 // where is "Board · Column", or "Backlog".
 func where(t Ticket) string {
 	if t.BoardName == nil {
-		return "Backlog"
+		return T("Backlog")
 	}
 	if t.ColumnName == nil {
 		return *t.BoardName

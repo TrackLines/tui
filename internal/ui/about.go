@@ -36,12 +36,12 @@ func (v *aboutView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			return v, nil
 		}
 		a.updated, a.latest = msg.tag, nil
-		a.status = ok.Render("Updated to " + msg.tag + ". Quit and start tracklines again to use it.")
+		a.status = ok.Render(F("Updated to %s. Quit and start tracklines again to use it.", msg.tag))
 	case tea.KeyMsg:
 		if msg.String() != "u" || a.latest == nil || v.updating {
 			return v, nil
 		}
-		v.updating, a.status = true, muted.Render("Downloading "+a.latest.Tag+"…")
+		v.updating, a.status = true, muted.Render(F("Downloading %s…", a.latest.Tag))
 		r := *a.latest
 		return v, func() tea.Msg {
 			return updatedMsg{r.Tag, update.SelfUpdate(context.Background(), http.DefaultClient, r)}
@@ -52,45 +52,46 @@ func (v *aboutView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 
 func (v *aboutView) render(a *app) string {
 	var b strings.Builder
-	b.WriteString(accent.Render("TrackLin.es for the terminal") + "\n\n")
-	b.WriteString("Version  " + bold.Render(version) + muted.Render("  ("+runtime.GOOS+"/"+runtime.GOARCH+")") + "\n")
+	b.WriteString(accent.Render(T("TrackLin.es for the terminal")) + "\n\n")
+	b.WriteString(T("Version") + "  " + bold.Render(version) + muted.Render("  ("+runtime.GOOS+"/"+runtime.GOARCH+")") + "\n")
 	switch {
 	case a.updated != "":
-		b.WriteString(ok.Render("Updated to "+a.updated+": restart to use it.") + "\n")
+		b.WriteString(ok.Render(F("Updated to %s: restart to use it.", a.updated)) + "\n")
 	case a.latest != nil:
-		b.WriteString(ok.Render(a.latest.Tag+" is out.") + "  " + bold.Render("u") + " to update\n")
+		b.WriteString(ok.Render(F("%s is out.", a.latest.Tag)) + "  " + F("%s to update", bold.Render("u")) + "\n")
 	case !update.IsRelease(version):
-		b.WriteString(muted.Render("A development build: it doesn’t check for updates.") + "\n")
+		b.WriteString(muted.Render(T("A development build: it doesn’t check for updates.")) + "\n")
 	case !updateCheck:
-		b.WriteString(muted.Render("Update checks are off (update_check in "+config.Path()+").") + "\n")
+		b.WriteString(muted.Render(F("Update checks are off (update_check in %s).", config.Path())) + "\n")
 	default:
-		b.WriteString(muted.Render("Up to date.") + "\n")
+		b.WriteString(muted.Render(T("Up to date.")) + "\n")
 	}
 	keys, other := "vim", "standard"
 	if !vimKeys {
 		keys, other = "standard", "vim"
 	}
-	b.WriteString("Backlog  " + bold.Render(backlogSort) + muted.Render("  first (backlog_sort in "+config.Path()+")") + "\n")
-	b.WriteString("Keys     " + bold.Render(keys) + muted.Render("  (for "+other+": keys = "+other+" in "+config.Path()+")") + "\n")
-	b.WriteString("\n" + bold.Render("Everywhere") + "\n")
+	b.WriteString(T("Backlog") + "  " + bold.Render(T(backlogSort)) + muted.Render("  "+F("first (backlog_sort in %s)", config.Path())) + "\n")
+	b.WriteString(T("Keys") + "  " + bold.Render(keys) + muted.Render("  "+F("(for %s: keys = %s in %s)", other, other, config.Path())) + "\n")
+	b.WriteString("\n" + bold.Render(T("Everywhere")) + "\n")
 	for _, k := range [][2]string{
-		{"1 / 2", "My work (Created by me, Mentions) / Projects"},
-		{"/", "search everything"},
-		{"t", "go to a ticket by its key (TL-308)"},
-		{"esc / q", "back (q quits on My work and Projects)"},
-		{"Q", "quit from anywhere"},
-		{"?", "this screen"},
+		{"1 / 2", T("My work (Created by me, Mentions) / Projects")},
+		{"/", T("search everything")},
+		{"t", T("go to a ticket by its key (TL-308)")},
+		{"D", T("unsent drafts: comments and edits that didn't reach the server")},
+		{"esc / q", T("back (q quits on My work and Projects)")},
+		{"Q", T("quit from anywhere")},
+		{"?", T("this screen")},
 	} {
 		b.WriteString(fmt.Sprintf("  %-8s %s\n", k[0], k[1]))
 	}
-	b.WriteString("\n" + muted.Render("Each screen lists its own keys at the bottom. More: github.com/TrackLines/tui") + "\n")
+	b.WriteString("\n" + muted.Render(T("Each screen lists its own keys at the bottom. More: github.com/TrackLines/tui")) + "\n")
 	return b.String()
 }
 
 func (v *aboutView) help() string {
 	if v.updating {
-		return "updating…"
+		return T("updating…")
 	}
-	return "u update (when there's one) · esc/q back"
+	return T("u update (when there's one) · esc/q back")
 }
 func (v *aboutView) typing() bool { return false }

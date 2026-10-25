@@ -4,6 +4,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/tracklines/tui/internal/api"
+	"github.com/tracklines/tui/internal/i18n"
+)
+
+// T and F are what the screens show, in the configured language (TL-604): T a text, F a format.
+var (
+	T = i18n.T
+	F = i18n.F
 )
 
 // The API's types by their short names, as the screens use them.
@@ -38,11 +45,13 @@ type Options struct {
 	VimKeys     bool   // config: keys = vim (true) or standard
 	BacklogSort string // config: backlog_sort = manual, newest or oldest
 	UpdateCheck bool   // config: update_check = on or off
+	Language    string // config: language = system, en or nl (TL-604)
 }
 
 // New is the TUI, ready to run with Bubble Tea.
 func New(client *Client, o Options) tea.Model {
 	version, vimKeys, updateCheck = o.Version, o.VimKeys, o.UpdateCheck
+	i18n.Set(o.Language)
 	if o.BacklogSort != "" {
 		backlogSort = o.BacklogSort
 	}

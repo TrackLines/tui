@@ -2,7 +2,7 @@ package ui
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -49,7 +49,7 @@ func (v *followView) check(a *app, join bool) tea.Cmd {
 			s, err = a.api.Session(ctx, v.kind, v.id)
 		}
 		if e, isAPI := err.(*APIError); isAPI && e.Status == http.StatusNotFound {
-			return nil, fmt.Errorf("The %s has ended.", v.kind)
+			return nil, errors.New(F("The %s has ended.", T(v.kind)))
 		}
 		if err != nil {
 			return nil, err
@@ -101,30 +101,30 @@ func (v *followView) close(a *app) tea.Cmd {
 }
 
 func (v *followView) render(a *app) string {
-	head := accent.Render(fmt.Sprintf("Following the %s on %s", v.kind, v.name))
+	head := accent.Render(F("Following the %s on %s", T(v.kind), v.name))
 	if v.session == nil {
 		return head + "\n"
 	}
 	var b strings.Builder
-	b.WriteString(head + muted.Render("  hosted by "+a.name(v.session.Host)) + "\n")
+	b.WriteString(head + muted.Render("  "+F("hosted by %s", a.name(v.session.Host))) + "\n")
 	var here []string
 	for _, p := range v.session.People {
 		here = append(here, a.name(p))
 	}
-	b.WriteString(muted.Render("Here: "+strings.Join(here, ", ")) + "\n")
+	b.WriteString(muted.Render(F("Here: %s", strings.Join(here, ", "))) + "\n")
 	if t := v.turn; t != nil && t.Index >= 0 && t.Index < len(t.People) {
-		turn := "Now: " + bold.Render(t.People[t.Index].Label)
+		turn := F("Now: %s", bold.Render(t.People[t.Index].Label))
 		if t.RunningSince == nil {
-			turn += muted.Render(" (paused)")
+			turn += muted.Render(" " + T("(paused)"))
 		}
 		if t.Index+1 < len(t.People) {
-			turn += muted.Render(" · next: " + t.People[t.Index+1].Label)
+			turn += muted.Render(" · " + F("next: %s", t.People[t.Index+1].Label))
 		}
 		b.WriteString(turn + "\n")
 	}
 	b.WriteString("\n")
 	if v.ticket == nil {
-		b.WriteString(muted.Render("The host hasn’t opened a ticket.") + "\n")
+		b.WriteString(muted.Render(T("The host hasn’t opened a ticket.")) + "\n")
 	} else {
 		b.WriteString((&ticketView{ticket: v.ticket}).detail(a))
 	}
@@ -132,7 +132,7 @@ func (v *followView) render(a *app) string {
 }
 
 func (v *followView) help() string {
-	return "following: it moves with the host · esc/q leave · Q quit"
+	return T("following: it moves with the host · esc/q leave · Q quit")
 }
 func (v *followView) typing() bool { return false }
 
@@ -152,7 +152,7 @@ func sessionBanner(a *app, kind string, s *Session) string {
 	if s == nil {
 		return ""
 	}
-	return ok.Render(fmt.Sprintf("● %s running, hosted by %s", strings.ToUpper(kind[:1])+kind[1:], a.name(s.Host))) + muted.Render(" · f to follow it") + "\n"
+	return ok.Render(F("● %s running, hosted by %s", capital(T(kind)), a.name(s.Host))) + muted.Render(" · "+T("f to follow it")) + "\n"
 }
 
 // liveSession is a standup or refinement running somewhere in the organization, for My work.
@@ -175,4 +175,13 @@ func runningSessions(ctx context.Context, api *Client) ([]liveSession, error) {
 		}
 	}
 	return out, nil
+}
+
+// capital is s with its first letter in capitals ("standup" → "Standup").
+func capital(s string) string {
+	r := []rune(s)
+	if len(r) == 0 {
+		return s
+	}
+	return strings.ToUpper(string(r[:1])) + string(r[1:])
 }

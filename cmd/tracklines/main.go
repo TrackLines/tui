@@ -12,6 +12,7 @@ import (
 
 	"github.com/tracklines/tui/internal/api"
 	"github.com/tracklines/tui/internal/config"
+	"github.com/tracklines/tui/internal/i18n"
 	"github.com/tracklines/tui/internal/reporting"
 	"github.com/tracklines/tui/internal/ui"
 )
@@ -19,16 +20,21 @@ import (
 // version is set at build time (-ldflags "-X main.version=v1.2.3"); "dev" never checks for updates.
 var version = "dev"
 
-const noKey = `tracklines needs a personal API key (tl_p_…).
+// noKey is what to do without an API key.
+func noKey() string {
+	return i18n.T(`tracklines needs a personal API key (tl_p_…).
 
 Make one at https://tracklin.es/account/api-keys, then either:
   mkdir -p ~/.config/tracklines && echo 'tl_p_…' > ~/.config/tracklines/key && chmod 600 ~/.config/tracklines/key
-or set TRACKLINES_API_KEY.`
+or set TRACKLINES_API_KEY.`)
+}
 
 func main() {
+	settings := config.Load(config.Path())
+	i18n.Set(settings.Language)
 	key, err := config.APIKey()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, noKey)
+		fmt.Fprintln(os.Stderr, noKey())
 		os.Exit(1)
 	}
 	base := os.Getenv("TRACKLINES_API_URL")
@@ -36,9 +42,8 @@ func main() {
 		base = "https://api.tracklin.es"
 	}
 	client := &api.Client{Base: base, Key: key, HTTP: http.DefaultClient, OnFailure: reporting.APIFailure}
-	settings := config.Load(config.Path())
 	restore := reporting.Setup(version, settings.Reports)
-	_, err = tea.NewProgram(ui.New(client, ui.Options{Version: version, VimKeys: settings.VimKeys, BacklogSort: settings.BacklogSort, UpdateCheck: settings.UpdateCheck}), tea.WithAltScreen()).Run()
+	_, err = tea.NewProgram(ui.New(client, ui.Options{Version: version, VimKeys: settings.VimKeys, BacklogSort: settings.BacklogSort, UpdateCheck: settings.UpdateCheck, Language: settings.Language}), tea.WithAltScreen()).Run()
 	if err != nil {
 		// ponytail: Bubble Tea recovers a panic and prints its stack itself; Bugfixes gets that it happened
 		reporting.Report("tui stopped: %v", err)

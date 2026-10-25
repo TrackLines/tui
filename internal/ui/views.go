@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os/exec"
@@ -18,6 +19,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/tracklines/tui/internal/api"
+	"github.com/tracklines/tui/internal/drafts"
 )
 
 // listView is a list of tickets: My work, Mentions, a search, or a project's backlog (which can take
@@ -130,23 +132,23 @@ func (v *listView) render(a *app) string {
 		if sort == "" {
 			sort = "manual"
 		}
-		b.WriteString(muted.Render("  · sort: " + sort))
+		b.WriteString(muted.Render("  · " + F("sort: %s", T(sort))))
 		if len(v.labels) > 0 {
-			b.WriteString(muted.Render("  · labels: ") + strings.Join(v.labels, ", "))
+			b.WriteString(muted.Render("  · "+T("labels:")+" ") + strings.Join(v.labels, ", "))
 		}
 	}
 	b.WriteString("\n\n")
 	if v.query != "" && !v.loaded { // the search failed: loadedMsg's error is in the status line
 		if a.loading {
-			return b.String() + muted.Render("Searching…") + "\n"
+			return b.String() + muted.Render(T("Searching…")) + "\n"
 		}
-		return b.String() + warn.Render("The search didn’t work.") + muted.Render(" r to try again") + "\n"
+		return b.String() + warn.Render(T("The search didn’t work.")) + muted.Render(" "+T("r to try again")) + "\n"
 	}
 	if len(v.items) == 0 {
 		if v.query != "" {
-			return b.String() + muted.Render("No tickets match “"+v.query+"”.") + "\n"
+			return b.String() + muted.Render(F("No tickets match “%s”.", v.query)) + "\n"
 		}
-		return b.String() + muted.Render("Nothing here.") + "\n"
+		return b.String() + muted.Render(T("Nothing here.")) + "\n"
 	}
 	extras := make([]string, len(v.items))
 	widest, longest := 0, 0
@@ -210,12 +212,12 @@ func slide(title string, from, width int) string {
 }
 
 func (v *listView) help() string {
-	h := "j/k move · h/l scroll title · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit"
+	h := T("j/k move · h/l scroll title · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit")
 	if v.project != "" {
-		h = "j/k move · h/l scroll title · enter open · m move to board · n new ticket · s sort · f labels · esc/q back · Q quit"
+		h = T("j/k move · h/l scroll title · enter open · m move to board · n new ticket · s sort · f labels · esc/q back · Q quit")
 	}
 	if v.query != "" {
-		h = "j/k move · h/l scroll title · enter open · / search again · r retry · esc/q back · Q quit"
+		h = T("j/k move · h/l scroll title · enter open · / search again · r retry · esc/q back · Q quit")
 	}
 	return h
 }
@@ -240,7 +242,7 @@ const liveEvery = 30 * time.Second // look for sessions again at most this often
 const focusLive = 3 // focus value for the running-sessions row (sections are 0–2)
 
 func newHome() *homeView {
-	return &homeView{sections: [3]*listView{{tag: "mywork", heading: "My work"}, {tag: "created", heading: "Created by me"}, {tag: "mentions", heading: "Mentions"}}}
+	return &homeView{sections: [3]*listView{{tag: "mywork", heading: T("My work")}, {tag: "created", heading: T("Created by me")}, {tag: "mentions", heading: T("Mentions")}}}
 }
 
 func (v *homeView) load(a *app) tea.Cmd {
@@ -345,13 +347,13 @@ func (v *homeView) render(a *app) string {
 			if l.where != "" {
 				where = l.where + " → " + l.name
 			}
-			rows[i] = ok.Render("● ") + strings.ToUpper(l.kind[:1]) + l.kind[1:] + " on " + bold.Render(where) + muted.Render(", hosted by "+a.name(l.host))
+			rows[i] = ok.Render("● ") + F("%s on %s", capital(T(l.kind)), bold.Render(where)) + muted.Render(", "+F("hosted by %s", a.name(l.host)))
 		}
 		cursor := -1
 		if v.focus == focusLive {
 			cursor = v.liveRow
 		}
-		out = append(out, accent.Render("Running now")+muted.Render("  enter to follow")+"\n"+lines(rows, cursor, 3))
+		out = append(out, accent.Render(T("Running now"))+muted.Render("  "+T("enter to follow"))+"\n"+lines(rows, cursor, 3))
 		used = min(len(rows), 3) + 2
 	}
 	// split what's left evenly between the visible sections (heading + blank cost a few rows each)
@@ -369,12 +371,12 @@ func (v *homeView) render(a *app) string {
 func (v *homeView) help() string {
 	var names []string
 	if len(v.live) > 0 {
-		names = append(names, "running now")
+		names = append(names, T("running now"))
 	}
 	for _, i := range v.visible() {
 		names = append(names, strings.ToLower(v.sections[i].heading))
 	}
-	return "tab " + strings.Join(names, "/") + " · j/k move · h/l scroll title · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit"
+	return F("tab %s · j/k move · h/l scroll title · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit", strings.Join(names, "/"))
 }
 func (v *homeView) typing() bool { return false }
 
@@ -385,7 +387,7 @@ type searchView struct{ input textinput.Model }
 func newSearch(q string) *searchView {
 	in := textinput.New()
 	in.SetValue(q)
-	in.Placeholder = "words or a key (TL-123)"
+	in.Placeholder = T("words or a key (TL-123)")
 	in.Prompt = "/ "
 	in.Focus()
 	return &searchView{in}
@@ -406,7 +408,7 @@ func (v *searchView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			if q == "" {
 				return v, msgOf(popMsg{})
 			}
-			return v, msgOf(replaceMsg{&listView{tag: "search:" + q, heading: "Search: " + q, query: q}})
+			return v, msgOf(replaceMsg{&listView{tag: "search:" + q, heading: F("Search: %s", q), query: q}})
 		}
 	}
 	var cmd tea.Cmd
@@ -415,9 +417,9 @@ func (v *searchView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 }
 
 func (v *searchView) render(a *app) string {
-	return accent.Render("Search") + "\n\n" + v.input.View() + "\n"
+	return accent.Render(T("Search")) + "\n\n" + v.input.View() + "\n"
 }
-func (v *searchView) help() string { return "enter search · esc cancel" }
+func (v *searchView) help() string { return T("enter search · esc cancel") }
 func (v *searchView) typing() bool { return true }
 
 // gotoView opens a ticket by its key: TL-308, or tl-308.
@@ -426,7 +428,7 @@ type gotoView struct{ input textinput.Model }
 func newGoto() *gotoView {
 	in := textinput.New()
 	in.Placeholder = "TL-308"
-	in.Prompt = "go to "
+	in.Prompt = T("go to") + " "
 	in.CharLimit = 20
 	in.Focus()
 	return &gotoView{in}
@@ -448,14 +450,14 @@ func (v *gotoView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		case "enter":
 			key := strings.ToUpper(strings.TrimSpace(v.input.Value()))
 			if !validKey.MatchString(key) {
-				a.status = warn.Render("A ticket key, like TL-308.")
+				a.status = warn.Render(T("A ticket key, like TL-308."))
 				return v, nil
 			}
 			a.loading = true
 			return v, func() tea.Msg {
 				t, err := a.api.TicketByKey(context.Background(), key)
 				if e, isAPI := err.(*APIError); isAPI && e.Status == http.StatusNotFound {
-					return statusMsg{err: fmt.Errorf("There’s no ticket %s.", key)}
+					return statusMsg{err: errors.New(F("There’s no ticket %s.", key))}
 				}
 				if err != nil {
 					return statusMsg{err: err}
@@ -470,9 +472,9 @@ func (v *gotoView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 }
 
 func (v *gotoView) render(a *app) string {
-	return accent.Render("Go to a ticket") + "\n\n" + v.input.View() + "\n"
+	return accent.Render(T("Go to a ticket")) + "\n\n" + v.input.View() + "\n"
 }
-func (v *gotoView) help() string { return "enter open · esc cancel" }
+func (v *gotoView) help() string { return T("enter open · esc cancel") }
 func (v *gotoView) typing() bool { return true }
 
 // projectsView lists the organization's projects.
@@ -514,13 +516,13 @@ func (v *projectsView) render(a *app) string {
 		rows[i] = fmt.Sprintf("%-5s %s  %s", p.KeyPrefix, bold.Render(p.Name), muted.Render(cut(p.Description, max(10, a.width-len(p.Name)-12))))
 	}
 	if len(rows) == 0 {
-		return accent.Render("Projects") + "\n\n" + muted.Render("No projects yet.") + "\n"
+		return accent.Render(T("Projects")) + "\n\n" + muted.Render(T("No projects yet.")) + "\n"
 	}
-	return accent.Render("Projects") + "\n\n" + lines(rows, v.cursor, a.rows()-2)
+	return accent.Render(T("Projects")) + "\n\n" + lines(rows, v.cursor, a.rows()-2)
 }
 
 func (v *projectsView) help() string {
-	return "j/k move · enter open · / search · t go to · 1–5 tabs · ? help · q quit"
+	return T("j/k move · enter open · / search · t go to · 1–5 tabs · ? help · q quit")
 }
 func (v *projectsView) typing() bool { return false }
 
@@ -579,19 +581,19 @@ func (v *projectView) render(a *app) string {
 		return ""
 	}
 	// names padded to the longest, so the sprints/kanban column lines up
-	width := len("Backlog")
+	width := lipgloss.Width(T("Backlog"))
 	for _, b := range v.project.Boards {
 		width = max(width, lipgloss.Width(b.Name))
 	}
 	var rows []string
 	for _, b := range v.project.Boards {
-		style := "sprints"
+		style := T("sprints")
 		if b.Style == "kanban" {
-			style = "kanban"
+			style = T("kanban")
 		}
 		rows = append(rows, b.Name+strings.Repeat(" ", width-lipgloss.Width(b.Name))+"  "+muted.Render(style))
 	}
-	rows = append(rows, "Backlog")
+	rows = append(rows, T("Backlog"))
 	head := accent.Render(v.project.Name)
 	if d := strings.TrimSpace(v.project.Description); d != "" {
 		head += "\n" + muted.Render(wrap(d, a.width))
@@ -600,7 +602,7 @@ func (v *projectView) render(a *app) string {
 }
 
 func (v *projectView) help() string {
-	return "j/k move · enter open · B backlog · esc/q back · Q quit"
+	return T("j/k move · enter open · B backlog · esc/q back · Q quit")
 }
 func (v *projectView) typing() bool { return false }
 
@@ -673,7 +675,7 @@ func (v *boardView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			id, key, dest := t.ID, t.Key, cols[to]
 			v.col, v.row = to, len(dest.Tickets) // follow it to the bottom of its new column
 			a.loading = true
-			return v, act("Moved "+key+" to "+dest.Name+".", func(ctx context.Context) error { return a.api.Move(ctx, id, dest) })
+			return v, act(F("Moved %s to %s.", key, dest.Name), func(ctx context.Context) error { return a.api.Move(ctx, id, dest) })
 		case "r":
 			a.loading = true
 			return v, v.load(a)
@@ -720,7 +722,7 @@ func (v *boardView) render(a *app) string {
 		}
 		body := lines(rows, cursor, height)
 		if len(rows) == 0 {
-			body = muted.Render("empty")
+			body = muted.Render(T("empty"))
 		}
 		blocks = append(blocks, lipgloss.NewStyle().Width(colWidth).Render(head+"\n"+body))
 	}
@@ -748,7 +750,7 @@ func intersperse(blocks []string) []string {
 }
 
 func (v *boardView) help() string {
-	return "h/l column · j/k ticket · enter open · H/L move ticket · n new · r reload · esc/q back"
+	return T("h/l column · j/k ticket · enter open · H/L move ticket · n new · r reload · esc/q back")
 }
 func (v *boardView) typing() bool { return false }
 
@@ -847,17 +849,17 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 				return v, nil
 			}
 			if a.me == "" {
-				a.status = warn.Render("Couldn’t tell who you are, so can’t assign.")
+				a.status = warn.Render(T("Couldn’t tell who you are, so can’t assign."))
 				return v, nil
 			}
 			id := t.ID
 			if t.AssignedTo != nil && *t.AssignedTo == a.me {
 				a.loading = true
-				return v, act("Unassigned.", func(ctx context.Context) error { return a.api.Assign(ctx, id, nil) })
+				return v, act(T("Unassigned."), func(ctx context.Context) error { return a.api.Assign(ctx, id, nil) })
 			}
 			me := a.me
 			a.loading = true
-			return v, act("Assigned to you.", func(ctx context.Context) error { return a.api.Assign(ctx, id, &me) })
+			return v, act(T("Assigned to you."), func(ctx context.Context) error { return a.api.Assign(ctx, id, &me) })
 		case "r":
 			a.loading = true
 			return v, v.load(a)
@@ -879,9 +881,9 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			if i := v.sel - len(t.Children) - 1; i >= 0 && i < len(v.files) {
 				f := v.files[i]
 				if err := openFile(f.URL); err != nil {
-					a.status = warn.Render("Couldn’t open " + f.Name + ": " + err.Error())
+					a.status = warn.Render(F("Couldn’t open %s: %s", f.Name, err.Error()))
 				} else {
-					a.status = ok.Render("Opened " + f.Name + ".")
+					a.status = ok.Render(F("Opened %s.", f.Name))
 				}
 			}
 			return v, nil
@@ -918,33 +920,39 @@ func (v *ticketView) detail(a *app) string {
 	t := v.ticket
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s  %s\n", accent.Render(t.Key), bold.Render(t.Title))
-	meta := []string{t.Type, priority(t.Priority), where(*t)}
+	meta := []string{T(t.Type), priority(t.Priority), where(*t)}
 	if t.Estimate != nil {
-		meta = append(meta, "estimate "+*t.Estimate)
+		meta = append(meta, F("estimate %s", *t.Estimate))
 	}
 	if tb := timeboxMeta(t, time.Now()); tb != "" {
 		meta = append(meta, tb)
 	}
 	if t.AssignedTo != nil {
-		meta = append(meta, "assigned to "+a.name(*t.AssignedTo))
+		meta = append(meta, F("assigned to %s", a.name(*t.AssignedTo)))
 	} else {
-		meta = append(meta, "unassigned")
+		meta = append(meta, T("unassigned"))
 	}
 	if t.Blocked {
-		meta = append(meta, warn.Render("blocked"))
+		meta = append(meta, warn.Render(T("blocked")))
 	}
 	if t.Done {
-		meta = append(meta, ok.Render("done"))
+		meta = append(meta, ok.Render(T("done")))
 	}
 	b.WriteString(muted.Render(strings.Join(meta, " · ")) + "\n")
+	if _, ok := a.drafts.Get(drafts.Comment, t.ID); ok {
+		b.WriteString(warn.Render(T("Unsent comment")) + muted.Render(": "+T("c to finish it")) + "\n")
+	}
+	if _, ok := a.drafts.Get(drafts.Edit, t.ID); ok {
+		b.WriteString(warn.Render(T("Unsent edit")) + muted.Render(": "+T("e to finish it")) + "\n")
+	}
 	if t.Parent != nil {
-		b.WriteString(muted.Render("parent: ") + t.Parent.Title + muted.Render(" (p to open)") + "\n")
+		b.WriteString(muted.Render(T("parent:")+" ") + t.Parent.Title + muted.Render(" "+T("(p to open)")) + "\n")
 	}
 	b.WriteString("\n")
 	if d := strings.TrimSpace(t.Description); d != "" {
 		b.WriteString(wrap(d, a.width) + "\n\n")
 	} else {
-		b.WriteString(muted.Render("No description.") + "\n\n")
+		b.WriteString(muted.Render(T("No description.")) + "\n\n")
 	}
 	if len(t.Children) > 0 {
 		b.WriteString(v.subTickets(a) + "\n")
@@ -952,7 +960,7 @@ func (v *ticketView) detail(a *app) string {
 	if len(v.files) > 0 {
 		b.WriteString(v.attachments(a) + "\n")
 	}
-	b.WriteString(accent.Render(fmt.Sprintf("Comments (%d)", len(v.comments))) + "\n")
+	b.WriteString(accent.Render(F("Comments (%d)", len(v.comments))) + "\n")
 	for _, c := range v.comments {
 		fmt.Fprintf(&b, "\n%s %s\n%s\n", bold.Render(a.name(c.Author)), muted.Render(day(c.CreatedAt)), wrap(c.Body, a.width))
 	}
@@ -963,16 +971,16 @@ func (v *ticketView) detail(a *app) string {
 // its progress: "Sub-tickets 3/7 done · 13 pts · 2 unestimated".
 func (v *ticketView) subTickets(a *app) string {
 	t := v.ticket
-	head := fmt.Sprintf("Sub-tickets (%d)", len(t.Children))
+	head := F("Sub-tickets (%d)", len(t.Children))
 	if e := t.Epic; e != nil {
-		parts := []string{fmt.Sprintf("%d/%d done", e.Done, e.Total)}
+		parts := []string{F("%d/%d done", e.Done, e.Total)}
 		if e.Points > 0 {
-			parts = append(parts, strconv.FormatFloat(e.Points, 'f', -1, 64)+" pts")
+			parts = append(parts, F("%s pts", strconv.FormatFloat(e.Points, 'f', -1, 64)))
 		}
 		if e.Unestimated > 0 {
-			parts = append(parts, fmt.Sprintf("%d unestimated", e.Unestimated))
+			parts = append(parts, F("%d unestimated", e.Unestimated))
 		}
-		head = "Sub-tickets " + strings.Join(parts, " · ")
+		head = F("Sub-tickets %s", strings.Join(parts, " · "))
 	}
 	var b strings.Builder
 	b.WriteString(accent.Render(head) + "\n")
@@ -985,11 +993,11 @@ func (v *ticketView) subTickets(a *app) string {
 		if c.Key != nil {
 			key = *c.Key + "  "
 		}
-		where := "backlog"
+		where := T("backlog")
 		if c.BoardName != nil {
 			where = *c.BoardName
 		}
-		who := "unassigned"
+		who := T("unassigned")
 		if c.AssignedTo != nil {
 			who = a.name(*c.AssignedTo)
 		}
@@ -997,7 +1005,7 @@ func (v *ticketView) subTickets(a *app) string {
 		if i+1 == v.sel {
 			row = picked.Render(row)
 		}
-		b.WriteString(mark + row + muted.Render(" · "+c.Type+" · "+who+" · "+where) + "\n")
+		b.WriteString(mark + row + muted.Render(" · "+T(c.Type)+" · "+who+" · "+where) + "\n")
 	}
 	return b.String()
 }
@@ -1005,7 +1013,7 @@ func (v *ticketView) subTickets(a *app) string {
 // attachments lists the ticket's files (TL-522), picked after the sub-tickets; o opens one.
 func (v *ticketView) attachments(a *app) string {
 	var b strings.Builder
-	b.WriteString(accent.Render(fmt.Sprintf("Attachments (%d)", len(v.files))) + "\n")
+	b.WriteString(accent.Render(F("Attachments (%d)", len(v.files))) + "\n")
 	for i, f := range v.files {
 		name := f.Name
 		if len(v.ticket.Children)+i+1 == v.sel {
@@ -1042,9 +1050,9 @@ func (v *ticketView) help() string {
 	}
 	resolve := ""
 	if v.ticket != nil && v.ticket.BoardID == nil {
-		resolve = "x close/won’t do · "
+		resolve = T("x close/won’t do") + " · "
 	}
-	return "j/k scroll · " + v.treeHelp() + "e edit · m move · c comment · a assign me / unassign · " + resolve + "r reload · esc/q back"
+	return T("j/k scroll") + " · " + v.treeHelp() + T("e edit · m move · c comment · a assign me / unassign") + " · " + resolve + T("r reload · esc/q back")
 }
 
 // treeHelp is the sub-ticket/parent keys, when the ticket has either.
@@ -1055,11 +1063,11 @@ func (v *ticketView) treeHelp() string {
 	h := ""
 	switch kids, files := len(v.ticket.Children), len(v.files); {
 	case kids > 0 && files > 0:
-		h += "tab pick sub-ticket/file · enter open · "
+		h += T("tab pick sub-ticket/file · enter open") + " · "
 	case kids > 0:
-		h += "tab pick sub-ticket · enter open · "
+		h += T("tab pick sub-ticket · enter open") + " · "
 	case files > 0:
-		h += "tab pick file · o open · "
+		h += T("tab pick file · o open") + " · "
 	}
 	if v.ticket.Parent != nil {
 		h += "p parent · "
@@ -1084,9 +1092,9 @@ func (v *resolveView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		}
 		if msg.String() == "enter" {
 			id := v.ticket.ID
-			res, done := api.ResolutionDone, "Closed as done."
+			res, done := api.ResolutionDone, T("Closed as done.")
 			if v.cursor == 1 {
-				res, done = api.ResolutionWontDo, "Closed as won’t do."
+				res, done = api.ResolutionWontDo, T("Closed as won’t do.")
 			}
 			return v, func() tea.Msg {
 				if err := a.api.Resolve(context.Background(), id, res, ""); err != nil {
@@ -1100,11 +1108,11 @@ func (v *resolveView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 }
 
 func (v *resolveView) render(a *app) string {
-	rows := []string{"  Close (done)", "  Won’t do (ignore)"}
-	return accent.Render("Resolve "+v.ticket.Key) + "  " + v.ticket.Title + "\n\n" + lines(rows, v.cursor, a.rows()-2)
+	rows := []string{"  " + T("Close (done)"), "  " + T("Won’t do (ignore)")}
+	return accent.Render(F("Resolve %s", v.ticket.Key)) + "  " + v.ticket.Title + "\n\n" + lines(rows, v.cursor, a.rows()-2)
 }
 
-func (v *resolveView) help() string { return "j/k pick · enter resolve · esc cancel" }
+func (v *resolveView) help() string { return T("j/k pick · enter resolve · esc cancel") }
 func (v *resolveView) typing() bool { return false }
 
 // moveView picks the column to move a ticket to, on its board. A backlog ticket picks a board
@@ -1180,7 +1188,7 @@ func (v *moveView) move(a *app, col Column, estimate string) tea.Cmd {
 		if err := a.api.MoveSized(context.Background(), id, col, estimate); err != nil {
 			return statusMsg{err: err}
 		}
-		return popMsg{ok.Render("Moved to " + col.Name + ".")}
+		return popMsg{ok.Render(F("Moved to %s.", col.Name))}
 	}
 }
 
@@ -1196,7 +1204,7 @@ func (v *moveView) rows() []string {
 		for _, c := range v.board.Columns {
 			row := "  " + c.Name
 			if v.ticket.ColumnID != nil && *v.ticket.ColumnID == c.ID {
-				row += muted.Render("  (now)")
+				row += muted.Render("  " + T("(now)"))
 			}
 			rows = append(rows, row)
 		}
@@ -1209,19 +1217,19 @@ func (v *moveView) rows() []string {
 }
 
 func (v *moveView) render(a *app) string {
-	title := "Move " + v.ticket.Key + " to"
+	title := F("Move %s to", v.ticket.Key)
 	switch {
 	case v.board == nil && v.boards == nil:
 		return ""
 	case v.board == nil:
 		if len(v.boards) == 0 {
-			return accent.Render(title) + "\n\n" + muted.Render("This project has no boards yet.") + "\n"
+			return accent.Render(title) + "\n\n" + muted.Render(T("This project has no boards yet.")) + "\n"
 		}
-		title += " which board"
+		title = F("Move %s to which board", v.ticket.Key)
 	case v.column == nil:
-		title += " " + v.board.Name
+		title = F("Move %s to %s", v.ticket.Key, v.board.Name)
 	default:
-		title = "Estimate " + v.ticket.Key + muted.Render("  "+v.board.Name+" sizes on the "+v.board.EstimateScale+" scale")
+		title = F("Estimate %s", v.ticket.Key) + muted.Render("  "+F("%s sizes on the %s scale", v.board.Name, v.board.EstimateScale))
 	}
 	return accent.Render(title) + "\n\n" + lines(v.rows(), v.cursor, a.rows()-2)
 }
@@ -1229,11 +1237,11 @@ func (v *moveView) render(a *app) string {
 func (v *moveView) help() string {
 	switch {
 	case v.board == nil:
-		return "j/k pick a board · enter next · esc cancel"
+		return T("j/k pick a board · enter next · esc cancel")
 	case v.column != nil:
-		return "j/k pick an estimate · enter move · esc cancel"
+		return T("j/k pick an estimate · enter move · esc cancel")
 	}
-	return "j/k pick a column · enter move · esc cancel"
+	return T("j/k pick a column · enter move · esc cancel")
 }
 func (v *moveView) typing() bool { return false }
 
@@ -1243,10 +1251,15 @@ type commentView struct {
 	input  vimArea
 }
 
-func newComment(t Ticket) *commentView { return &commentView{t, newVimArea("Your comment (markdown)")} }
+func newComment(t Ticket) *commentView {
+	return &commentView{t, newVimArea(T("Your comment (markdown)"))}
+}
 
 func (v *commentView) load(a *app) tea.Cmd {
 	a.loading = false
+	if d, ok := a.drafts.Get(drafts.Comment, v.ticket.ID); ok && v.input.Value() == "" {
+		v.input.SetValue(d.Body) // pick up where the failed send left off
+	}
 	v.size(a)
 	return textarea.Blink
 }
@@ -1263,23 +1276,19 @@ func (v *commentView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	case vimCancel:
 		return v, msgOf(popMsg{})
 	case vimSend:
-		body, id := strings.TrimSpace(v.input.Value()), v.ticket.ID
+		body := strings.TrimSpace(v.input.Value())
 		if body == "" {
 			return v, nil
 		}
-		return v, func() tea.Msg {
-			if err := a.api.Comment(context.Background(), id, body); err != nil {
-				return statusMsg{err: err}
-			}
-			return popMsg{ok.Render("Comment added.")}
-		}
+		d := drafts.Draft{Kind: drafts.Comment, TicketID: v.ticket.ID, Key: v.ticket.Key, Title: v.ticket.Title, Body: body, Tried: time.Now()}
+		return v, func() tea.Msg { return sendDraft(a, d, true) }
 	}
 	return v, cmd
 }
 
 func (v *commentView) render(a *app) string {
 	v.size(a) // the window may have changed
-	return accent.Render("Comment on "+v.ticket.Key) + "  " + v.ticket.Title + "\n\n" + v.input.View() + "\n" + v.input.mode() + "\n"
+	return accent.Render(F("Comment on %s", v.ticket.Key)) + "  " + v.ticket.Title + "\n\n" + v.input.View() + "\n" + v.input.mode() + "\n"
 }
 func (v *commentView) help() string { return editHelp() }
 func (v *commentView) typing() bool { return true }
@@ -1307,6 +1316,30 @@ type formView struct {
 	pendingQ               bool // q (esc with standard keys) pressed once with something typed: again discards it
 	cmd                    cmdLine
 	before                 string // the full form state as it started, to tell if anything changed
+	fromDraft, conflict    bool   // filled from an unsent edit; the ticket changed since it was made
+}
+
+func idOf(t *Ticket) string {
+	if t == nil {
+		return ""
+	}
+	return t.ID
+}
+
+// apply fills the form from an unsent edit.
+func (f *formView) apply(in TicketInput) {
+	f.title.SetValue(in.Title)
+	f.description.SetValue(in.Description)
+	f.kind, f.prio = max(0, indexOf(types, in.Type)), max(0, indexOf(priorities, in.Priority))
+	if in.Estimate != nil {
+		f.estimate = indexOf(api.Scales[f.scale], *in.Estimate)
+	}
+	if in.TimeboxDays != nil {
+		f.timeboxDays = *in.TimeboxDays
+	}
+	if in.TimeboxHours != nil {
+		f.timeboxHours = *in.TimeboxHours
+	}
 }
 
 const (
@@ -1322,9 +1355,9 @@ const (
 func newForm(t *Ticket, project, column, scale string) *formView {
 	f := &formView{editing: t, project: project, column: column, scale: scale, prio: 1, estimate: -1, timeboxDays: -1, timeboxHours: -1, typingTitle: true}
 	f.title = textinput.New()
-	f.title.Placeholder = "Title"
+	f.title.Placeholder = T("Title")
 	f.title.CharLimit = 200
-	f.description = newVimArea("Description (markdown)")
+	f.description = newVimArea(T("Description (markdown)"))
 	f.description.Blur()
 	if t != nil {
 		f.title.SetValue(t.Title)
@@ -1357,6 +1390,10 @@ func indexOf[T comparable](list []T, s T) int {
 
 func (f *formView) load(a *app) tea.Cmd {
 	a.loading = false
+	if d, ok := a.drafts.Get(drafts.Edit, idOf(f.editing)); ok && f.editing != nil && d.Input != nil && !f.fromDraft {
+		f.apply(*d.Input) // the edit that didn't save; before stays the ticket as it is, so it's unsaved
+		f.fromDraft, f.conflict = true, d.Base != "" && d.Base != f.editing.UpdatedAt
+	}
 	f.description.SetWidth(max(20, a.width-2))
 	f.description.SetHeight(max(3, a.rows()-11))
 	return textinput.Blink
@@ -1400,12 +1437,12 @@ func (f *formView) changed() bool { return f.snapshot() != f.before }
 func (f *formView) input() (TicketInput, string) {
 	in := TicketInput{Title: strings.TrimSpace(f.title.Value()), Description: strings.TrimSpace(f.description.Value()), Type: types[f.kind], Priority: priorities[f.prio]}
 	if in.Title == "" {
-		return in, "A title, please."
+		return in, T("A title, please.")
 	}
 	if values := api.Scales[f.scale]; values != nil {
 		if f.estimate < 0 {
 			if f.editing == nil {
-				return in, "This board needs an estimate."
+				return in, T("This board needs an estimate.")
 			}
 			none := ""
 			in.Estimate = &none
@@ -1431,14 +1468,10 @@ func (f *formView) save(a *app) tea.Cmd {
 		a.status = warn.Render(problem)
 		return nil
 	}
-	if f.editing != nil {
-		id := f.editing.ID
-		return func() tea.Msg {
-			if err := a.api.Update(context.Background(), id, in); err != nil {
-				return statusMsg{err: err}
-			}
-			return popMsg{ok.Render("Saved.")}
-		}
+	if t := f.editing; t != nil {
+		// based on the ticket as this form loaded it: saving here is the person's own call, even over a conflict
+		d := drafts.Draft{Kind: drafts.Edit, TicketID: t.ID, Key: t.Key, Title: t.Title, Input: &in, Base: t.UpdatedAt, Tried: time.Now()}
+		return func() tea.Msg { return sendDraft(a, d, true) }
 	}
 	project, column := f.project, f.column
 	return func() tea.Msg {
@@ -1446,7 +1479,7 @@ func (f *formView) save(a *app) tea.Cmd {
 		if err != nil {
 			return statusMsg{err: err}
 		}
-		return popMsg{ok.Render("Created " + t.Key + ".")}
+		return popMsg{ok.Render(F("Created %s.", t.Key))}
 	}
 }
 
@@ -1592,9 +1625,9 @@ func (f *formView) standardKey(k tea.KeyMsg) (view, tea.Cmd) {
 func (f *formView) mode() string {
 	switch {
 	case f.pendingQ && !vimKeys:
-		return warn.Render("Unsaved changes: esc again to discard them")
+		return warn.Render(T("Unsaved changes: esc again to discard them"))
 	case f.pendingQ:
-		return warn.Render("Unsaved changes: q again to discard them")
+		return warn.Render(T("Unsaved changes: q again to discard them"))
 	case !vimKeys:
 		return ""
 	case f.field == fieldDescription:
@@ -1608,9 +1641,9 @@ func (f *formView) mode() string {
 }
 
 func (f *formView) render(a *app) string {
-	head := "New ticket"
+	head := T("New ticket")
 	if f.editing != nil {
-		head = "Edit " + f.editing.Key
+		head = F("Edit %s", f.editing.Key)
 	}
 	label := func(field int, name string) string {
 		if f.field == field {
@@ -1624,44 +1657,50 @@ func (f *formView) render(a *app) string {
 		}
 		return value
 	}
-	est := "not estimated"
+	est := T("not estimated")
 	if f.estimate >= 0 {
 		est = api.Scales[f.scale][f.estimate]
 	}
 	var b strings.Builder
-	b.WriteString(accent.Render(head) + "\n\n")
-	b.WriteString(label(fieldTitle, "Title") + "\n" + f.title.View() + "\n\n")
-	b.WriteString(label(fieldType, "Type") + "  " + choice(fieldType, types[f.kind]) + "\n")
-	b.WriteString(label(fieldPriority, "Priority") + "  " + choice(fieldPriority, priorities[f.prio]) + "\n")
+	b.WriteString(accent.Render(head) + "\n")
+	switch {
+	case f.conflict:
+		b.WriteString(warn.Render(F("Your unsent edit, but %s has changed since: saving replaces those changes. esc to look at it first (your edit stays a draft).", f.editing.Key)) + "\n")
+	case f.fromDraft:
+		b.WriteString(muted.Render(T("Your unsent edit, as you left it.")) + "\n")
+	}
+	b.WriteString("\n" + label(fieldTitle, T("Title")) + "\n" + f.title.View() + "\n\n")
+	b.WriteString(label(fieldType, T("Type")) + "  " + choice(fieldType, T(types[f.kind])) + "\n")
+	b.WriteString(label(fieldPriority, T("Priority")) + "  " + choice(fieldPriority, T(priorities[f.prio])) + "\n")
 	if api.Scales[f.scale] != nil {
-		b.WriteString(label(fieldEstimate, "Estimate") + "  " + choice(fieldEstimate, est) + "\n")
+		b.WriteString(label(fieldEstimate, T("Estimate")) + "  " + choice(fieldEstimate, est) + "\n")
 	}
 	if types[f.kind] == "spike" {
-		days, hours := "not set", "not set"
+		days, hours := T("not set"), T("not set")
 		if f.timeboxDays >= 0 {
-			days = fmt.Sprintf("%d days", f.timeboxDays)
+			days = F("%d days", f.timeboxDays)
 			if f.timeboxDays == 1 {
-				days = "1 day"
+				days = T("1 day")
 			}
 		}
 		if f.timeboxHours >= 0 {
-			hours = fmt.Sprintf("%d hours", f.timeboxHours)
+			hours = F("%d hours", f.timeboxHours)
 			if f.timeboxHours == 1 {
-				hours = "1 hour"
+				hours = T("1 hour")
 			}
 		}
-		b.WriteString(label(fieldTimeboxDays, "Timebox days") + "  " + choice(fieldTimeboxDays, days) + "\n")
-		b.WriteString(label(fieldTimeboxHours, "Timebox hours") + "  " + choice(fieldTimeboxHours, hours) + "\n")
+		b.WriteString(label(fieldTimeboxDays, T("Timebox days")) + "  " + choice(fieldTimeboxDays, days) + "\n")
+		b.WriteString(label(fieldTimeboxHours, T("Timebox hours")) + "  " + choice(fieldTimeboxHours, hours) + "\n")
 	}
-	b.WriteString("\n" + label(fieldDescription, "Description") + "\n" + f.description.View() + "\n" + f.mode() + "\n")
+	b.WriteString("\n" + label(fieldDescription, T("Description")) + "\n" + f.description.View() + "\n" + f.mode() + "\n")
 	return b.String()
 }
 
 func (f *formView) help() string {
 	if !vimKeys {
-		return "tab next field · ←/→ choose · ctrl+s save · esc cancel"
+		return T("tab next field · ←/→ choose · ctrl+s save · esc cancel")
 	}
-	return "esc normal mode · tab or j/k field · i edit · h/l choose · :w save · :q cancel · ctrl+s save"
+	return T("esc normal mode · tab or j/k field · i edit · h/l choose · :w save · :q cancel · ctrl+s save")
 }
 func (f *formView) typing() bool { return true }
 
@@ -1715,7 +1754,7 @@ func (v *labelsView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 
 func (v *labelsView) render(a *app) string {
 	if len(v.list.inUse) == 0 {
-		return accent.Render("Labels") + "\n\n" + muted.Render("No labels in this backlog.") + "\n"
+		return accent.Render(T("Labels")) + "\n\n" + muted.Render(T("No labels in this backlog.")) + "\n"
 	}
 	rows := make([]string, len(v.list.inUse))
 	for i, l := range v.list.inUse {
@@ -1725,10 +1764,132 @@ func (v *labelsView) render(a *app) string {
 		}
 		rows[i] = fmt.Sprintf("%s %s %s", box, l.Label, muted.Render(fmt.Sprint(l.Count)))
 	}
-	return accent.Render("Show tickets with any of") + "\n\n" + lines(rows, v.cursor, a.rows()-2)
+	return accent.Render(T("Show tickets with any of")) + "\n\n" + lines(rows, v.cursor, a.rows()-2)
 }
 
 func (v *labelsView) help() string {
-	return "j/k move · space toggle · c clear · enter apply · esc cancel"
+	return T("j/k move · space toggle · c clear · enter apply · esc cancel")
 }
 func (v *labelsView) typing() bool { return false }
+
+// sendDraft sends a comment or an edit. Sent, its draft goes; failed, it's kept (keptMsg) to send
+// again from D. pop: leave the screen it was written on once it's sent.
+func sendDraft(a *app, d drafts.Draft, pop bool) tea.Msg {
+	ctx := context.Background()
+	var err error
+	status := T("Comment added.")
+	if d.Kind == drafts.Edit {
+		err, status = a.api.Update(ctx, d.TicketID, *d.Input), T("Saved.")
+	} else {
+		err = a.api.Comment(ctx, d.TicketID, d.Body)
+	}
+	if err != nil {
+		d.Error, d.Conflict = err.Error(), false
+		return keptMsg{d}
+	}
+	return sentMsg{d.Kind, d.TicketID, status, pop}
+}
+
+// retryDraft sends a draft again, safely: a comment that got through before the connection dropped
+// isn't posted twice, and an edit to a ticket that has changed since isn't sent over those changes.
+func retryDraft(a *app, d drafts.Draft) tea.Msg {
+	ctx := context.Background()
+	switch d.Kind {
+	case drafts.Comment:
+		comments, err := a.api.Comments(ctx, d.TicketID)
+		if err != nil {
+			d.Error = err.Error()
+			return keptMsg{d}
+		}
+		if d.Sent(comments) {
+			return sentMsg{d.Kind, d.TicketID, F("Already sent: %s has that comment.", d.Key), false}
+		}
+	case drafts.Edit:
+		t, err := a.api.Ticket(ctx, d.TicketID)
+		if err != nil {
+			d.Error = err.Error()
+			return keptMsg{d}
+		}
+		if d.Base != "" && t.UpdatedAt != d.Base {
+			d.Error, d.Conflict = T("changed since your edit"), true
+			return keptMsg{d}
+		}
+	}
+	msg := sendDraft(a, d, false)
+	if s, sent := msg.(sentMsg); sent {
+		s.status = F("Sent to %s.", d.Key)
+		return s
+	}
+	return msg
+}
+
+// draftsView lists the comments and edits that didn't reach the server: r sends one again, x
+// discards it, enter opens its ticket (c or e there picks it up to change it first).
+type draftsView struct {
+	cursor  int
+	sending map[string]bool
+}
+
+func (v *draftsView) load(a *app) tea.Cmd {
+	a.loading = false
+	return nil
+}
+
+func (v *draftsView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
+	list := a.drafts.List()
+	switch msg := msg.(type) {
+	case keptMsg:
+		delete(v.sending, msg.d.ID())
+	case sentMsg:
+		delete(v.sending, msg.kind+":"+msg.ticket)
+	case tea.KeyMsg:
+		if cursorKeys(msg.String(), &v.cursor, len(list)) || len(list) == 0 {
+			return v, nil
+		}
+		d := list[min(v.cursor, len(list)-1)]
+		switch msg.String() {
+		case "enter":
+			return v, msgOf(pushMsg{&ticketView{id: d.TicketID}})
+		case "r":
+			if v.sending[d.ID()] {
+				return v, nil
+			}
+			v.sending[d.ID()] = true
+			return v, func() tea.Msg { return retryDraft(a, d) }
+		case "x":
+			a.drafts.Remove(d.Kind, d.TicketID)
+			a.status = ok.Render(T("Draft discarded."))
+		}
+	}
+	v.cursor = min(v.cursor, max(len(a.drafts)-1, 0))
+	return v, nil
+}
+
+func (v *draftsView) render(a *app) string {
+	head := accent.Render(T("Unsent drafts")) + muted.Render("  "+F("kept in %s", drafts.Path())) + "\n\n"
+	list := a.drafts.List()
+	if len(list) == 0 {
+		return head + muted.Render(T("Nothing waiting: every comment and edit was sent.")) + "\n"
+	}
+	rows := make([]string, len(list))
+	for i, d := range list {
+		state := warn.Render(F("not sent: %s", d.Error))
+		switch {
+		case v.sending[d.ID()]:
+			state = muted.Render(T("sending…"))
+		case d.Conflict:
+			state = warn.Render(T("conflict: the ticket changed since · open it and e to compare"))
+		}
+		what := d.Body
+		if d.Kind == drafts.Edit {
+			what = F("edit: %s", d.Input.Title)
+		}
+		rows[i] = fmt.Sprintf("%-9s %s  %s", d.Key, cut(strings.ReplaceAll(what, "\n", " "), 40), state)
+	}
+	return head + lines(rows, v.cursor, a.rows()-3)
+}
+
+func (v *draftsView) help() string {
+	return T("j/k move · r send again · x discard · enter open ticket · esc/q back")
+}
+func (v *draftsView) typing() bool { return false }

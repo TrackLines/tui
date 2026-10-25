@@ -45,6 +45,7 @@ type Ticket struct {
 	TimeboxHours *int    `json:"timebox_hours"`
 	StartedAt    *string `json:"started_at"` // first move into In Progress; drives the timebox countdown (TL-506)
 	DoneAt       *string `json:"done_at"`
+	UpdatedAt    string  `json:"updated_at"` // an edit draft checks it before resending (TL-599)
 	// where it sits in the tree (TL-514): the ticket it's a sub-ticket of, its own sub-tickets, and
 	// an epic's progress over them; only the single-ticket endpoint fills these
 	Parent   *Parent       `json:"parent"`

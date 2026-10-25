@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/tracklines/tui/internal/api"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/tracklines/tui/internal/drafts"
+	"github.com/tracklines/tui/internal/i18n"
 	"github.com/tracklines/tui/internal/update"
 	"github.com/tracklines/tui/internal/usage"
 )
@@ -23,6 +26,10 @@ import (
 var (
 	liveRunning bool
 	liveFocus   any
+	// apiDown: every change fails (503); replyLost: a comment is saved but its reply never arrives
+	// (502); ticketUpdated: TL-1's updated_at (TL-599)
+	apiDown, replyLost bool
+	ticketUpdated      = "2026-10-25T10:00:00Z"
 )
 
 // fakeAPI is TrackLin.es for Sam: project TL with a Web board (To do → In progress → Done, Fibonacci
@@ -30,6 +37,7 @@ var (
 func fakeAPI(t *testing.T) (*Client, *[]string) {
 	var calls []string
 	var mu sync.Mutex
+	var posted []map[string]any // comments added (TL-599)
 	movedT2 := false
 	flaky := 0 // searches for "flaky": the first fails
 	ticket := func(id string) map[string]any {
@@ -37,7 +45,7 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 			return map[string]any{"id": "t2", "key": "TL-2", "title": "Idea", "project_id": "p1"}
 		}
 		return map[string]any{"id": "t1", "key": "TL-1", "title": "Fix login", "description": "Login fails", "type": "bug", "priority": "urgent", "estimate": "3",
-			"project_id": "p1", "board_id": "b1", "board_name": "Web", "column_id": "c1", "column_name": "To do"}
+			"project_id": "p1", "board_id": "b1", "board_name": "Web", "column_id": "c1", "column_name": "To do", "updated_at": ticketUpdated}
 	}
 	board := map[string]any{"id": "b1", "name": "Web", "project_id": "p1", "style": "sprints", "estimate_scale": "fibonacci", "columns": []map[string]any{
 		{"id": "c1", "name": "To do", "tickets": []any{ticket("t1")}},
@@ -58,6 +66,17 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 		var out any
 		session := map[string]any{"host": "user_2", "people": []string{"user_2", "user_1"}, "focus": map[string]any{"ticketId": liveFocus}}
 		switch p := r.URL.Path; {
+		case apiDown && r.Method != http.MethodGet:
+			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+			return
+		case r.Method == http.MethodPost && strings.HasSuffix(p, "/comments"):
+			posted = append(posted, map[string]any{"id": fmt.Sprint("p", len(posted)), "body": body["body"], "author": "user_1", "created_at": time.Now().UTC().Format(time.RFC3339)})
+			if replyLost {
+				http.Error(w, "bad gateway", http.StatusBadGateway)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
 		case p == "/api/live/sessions":
 			out = []any{}
 			if liveRunning {
@@ -119,7 +138,7 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 		case strings.HasSuffix(p, "/attachments"):
 			out = []any{}
 		case strings.HasSuffix(p, "/comments"):
-			out = []map[string]any{{"id": "m1", "body": "on it", "author": "user_1", "created_at": "2026-10-20T08:00:00Z"}}
+			out = append([]map[string]any{{"id": "m1", "body": "on it", "author": "user_1", "created_at": "2026-10-20T08:00:00Z"}}, posted...)
 		case p == "/api/boards/b1":
 			out = board
 		case p == "/api/assignees":
@@ -1214,6 +1233,95 @@ func TestFooterPinnedAndCommentBoxFills(t *testing.T) {
 	}
 }
 
+// count is how many calls start with prefix.
+func count(calls []string, prefix string) int {
+	n := 0
+	for _, c := range calls {
+		if strings.HasPrefix(c, prefix) {
+			n++
+		}
+	}
+	return n
+}
+
+func outage(t *testing.T) {
+	t.Cleanup(func() { apiDown, replyLost, ticketUpdated = false, false, "2026-10-25T10:00:00Z" })
+}
+
+// A comment that can't be sent is kept, survives a restart, and goes once it's asked to (TL-599).
+func TestDraftsSurviveAnOutage(t *testing.T) {
+	outage(t)
+	a, calls := start(t)
+	apiDown = true
+	press(a, "enter", "c", "hello", "esc", "enter")
+	expect(t, a, "service unavailable", "kept as a draft", "Comment on TL-1") // still writing, text kept
+	press(a, "esc", "q", "q")                                                 // leave it (q twice discards the box, not the draft)
+	expect(t, a, "Unsent comment", "c to finish it")
+
+	// restart: the draft is still there
+	b := newApp(a.api)
+	b.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	pump(b, b.Init(), 0)
+	expect(t, b, "1 unsent draft", "D to see them")
+	press(b, "D")
+	expect(t, b, "Unsent drafts", "drafts.json", "TL-1", "hello", "not sent: service unavailable")
+	press(b, "r") // still down: still kept, nothing lost
+	expect(t, b, "TL-1", "not sent: service unavailable")
+	apiDown = false
+	n := len(*calls)
+	press(b, "r")
+	expect(t, b, "Sent to TL-1.", "Nothing waiting")
+	if got := count((*calls)[n:], "POST /api/tickets/t1/comments"); got != 1 {
+		t.Fatalf("sent %d times: %v", got, (*calls)[n:])
+	}
+	if len(drafts.Load()) != 0 {
+		t.Fatal("sent draft still on disk")
+	}
+}
+
+// The server saved the comment but the reply was lost: sending again finds it and doesn't post twice.
+func TestRetryNeverPostsTwice(t *testing.T) {
+	outage(t)
+	a, calls := start(t)
+	replyLost = true
+	press(a, "enter", "c", "on my way", "esc", "enter")
+	expect(t, a, "kept as a draft")
+	replyLost = false
+	press(a, "esc", "q", "q", "D", "r")
+	expect(t, a, "Already sent: TL-1 has that comment.")
+	if got := count(*calls, "POST /api/tickets/t1/comments"); got != 1 {
+		t.Fatalf("posted %d times", got)
+	}
+}
+
+// An edit that didn't save isn't sent over changes made since; the text is kept to compare.
+func TestEditDraftConflict(t *testing.T) {
+	outage(t)
+	a, calls := start(t)
+	apiDown = true
+	press(a, "enter", "e", "esc", "A", " now", "esc", "ctrl+s")
+	expect(t, a, "kept as a draft")
+	apiDown = false
+	ticketUpdated = "2026-10-25T11:00:00Z" // someone else changed it
+	press(a, "esc", "q", "q")              // leave the form (discarding it there, not the draft)
+	expect(t, a, "Unsent edit", "e to finish it")
+	n := len(*calls)
+	press(a, "D", "r")
+	expect(t, a, "conflict: the ticket changed since", "TL-1 changed since your edit")
+	if find((*calls)[n:], "PATCH") != "" {
+		t.Fatalf("sent over the change: %v", (*calls)[n:])
+	}
+	press(a, "enter", "e") // the draft, flagged
+	expect(t, a, "Fix login now", "has changed since: saving replaces those changes")
+	press(a, "ctrl+s")
+	if c := find(*calls, "PATCH /api/tickets/t1"); !strings.Contains(c, `"title":"Fix login now"`) {
+		t.Fatalf("save after compare: %q", c)
+	}
+	if _, ok := a.drafts.Get(drafts.Edit, "t1"); ok {
+		t.Fatal("saved edit still a draft")
+	}
+}
+
 // People no longer in the org read "Former member", like the web app, never their raw id (TL-607).
 func TestNamesOfPeopleWhoLeft(t *testing.T) {
 	a := &app{}
@@ -1240,4 +1348,20 @@ func TestFormerMemberOnATicket(t *testing.T) {
 	if strings.Contains(a.View(), "user_1") {
 		t.Fatalf("raw id shown:\n%s", a.View())
 	}
+}
+
+// language = nl: the screens speak Dutch; tickets, names and keys stay as they are (TL-604).
+func TestDutch(t *testing.T) {
+	i18n.Set("nl")
+	defer i18n.Set("en")
+	a, _ := start(t)
+	expect(t, a, "Mijn werk", "Projecten", "j/k bewegen", "Fix login") // navigation, help, ticket text as written
+	press(a, "enter")
+	expect(t, a, "urgent", "schatting 3", "Reacties (1)", "e bewerken")
+	press(a, "c")
+	expect(t, a, "Reageren op TL-1", "-- INVOEGEN --")
+	press(a, "esc", "q", "e") // the form
+	expect(t, a, "TL-1 bewerken", "Titel", "Prioriteit", "Schatting", "Beschrijving")
+	press(a, "esc", "q", "esc", "t", "TL-999", "enter") // an error
+	expect(t, a, "Er is geen ticket TL-999.", "Naar een ticket")
 }

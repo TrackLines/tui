@@ -22,11 +22,14 @@ type Settings struct {
 	Reports bool
 	// UpdateCheck: a release build looks for a newer release when it starts.
 	UpdateCheck bool
+	// Language the TUI speaks: system (your locale, when it's one the TUI has; else English), en or
+	// nl (TL-604). Ticket text is never translated.
+	Language string
 }
 
 // Defaults is what you get with no config file.
 func Defaults() Settings {
-	return Settings{VimKeys: true, BacklogSort: "manual", Reports: true, UpdateCheck: true}
+	return Settings{VimKeys: true, BacklogSort: "manual", Reports: true, UpdateCheck: true, Language: "system"}
 }
 
 // Dir is $XDG_CONFIG_HOME/tracklines (~/.config): the key and the config.
@@ -73,6 +76,10 @@ func Load(path string) Settings {
 			onOff(value, &s.Reports)
 		case "update_check":
 			onOff(value, &s.UpdateCheck)
+		case "language":
+			if v := strings.TrimSpace(value); v == "system" || v == "en" || v == "nl" {
+				s.Language = v
+			}
 		}
 	}
 	return s
