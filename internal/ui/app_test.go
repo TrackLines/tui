@@ -1446,3 +1446,28 @@ func TestDueDatesOnScreen(t *testing.T) {
 		t.Fatalf("clear: %q", c)
 	}
 }
+
+// A board cuts long titles to its column width; the selected ticket shows in full under it (TL-642).
+func TestBoardShowsTheSelectedTitleInFull(t *testing.T) {
+	long := "Frontend: saved views and bulk edit in the backlog and search, with partial failures listed"
+	v := &boardView{board: &Board{Name: "Frontend", Columns: []Column{
+		{Name: "To do", Tickets: []Ticket{{Key: "TL-634", Title: long, Priority: "high"}, {Key: "TL-638", Title: "CSV export"}}},
+		{Name: "Done", Tickets: nil},
+	}}}
+	a := &app{width: 100, height: 40}
+	out := v.render(a)
+	if !strings.Contains(strings.Join(strings.Fields(out), " "), long) {
+		t.Fatalf("the selected title isn't in full:\n%s", out)
+	}
+	if !strings.Contains(out, "To do · ") || !strings.Contains(out, "high") {
+		t.Fatalf("no column or priority under it:\n%s", out)
+	}
+	v.row = 1 // j: the next ticket
+	if sel := v.selected(a); !strings.Contains(sel, "CSV export") || strings.Contains(sel, "bulk edit") {
+		t.Fatalf("moving didn't follow:\n%s", sel)
+	}
+	v.col, v.row = 1, 0
+	if v.selected(a) != "" {
+		t.Fatal("an empty column shows no ticket")
+	}
+}

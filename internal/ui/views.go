@@ -701,7 +701,10 @@ func (v *boardView) render(a *app) string {
 		v.firstShown = v.col - fit + 1
 	}
 	end := min(len(cols), v.firstShown+fit)
-	height := a.rows() - 4
+	// the selected ticket in full under the board (TL-642): columns cut long titles, and h/l move
+	// between columns here, so they can't slide the title as in lists
+	selected := v.selected(a)
+	height := a.rows() - 4 - lipgloss.Height(selected)
 	var blocks []string
 	for i := v.firstShown; i < end; i++ {
 		c := cols[i]
@@ -737,7 +740,30 @@ func (v *boardView) render(a *app) string {
 	if v.project != "" {
 		title = v.project + " → " + title // e.g. BugFixes → LandingPage
 	}
-	return accent.Render(title) + more + "\n" + sessionBanner(a, "standup", v.standup) + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, intersperse(blocks)...)
+	out := accent.Render(title) + more + "\n" + sessionBanner(a, "standup", v.standup) + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, intersperse(blocks)...)
+	if selected != "" {
+		out += "\n\n" + selected
+	}
+	return out
+}
+
+// selected is the picked ticket's key and whole title, wrapped to the window, then its column,
+// priority and due date; "" when the column is empty.
+func (v *boardView) selected(a *app) string {
+	cols := v.board.Columns
+	if v.col >= len(cols) || v.row >= len(cols[v.col].Tickets) {
+		return ""
+	}
+	t := cols[v.col].Tickets[v.row]
+	t.Done = v.col == len(cols)-1
+	meta := []string{cols[v.col].Name}
+	if t.Priority == "urgent" || t.Priority == "high" {
+		meta = append(meta, priority(t.Priority))
+	}
+	if due := dueBadge(&t, time.Now()); due != "" {
+		meta = append(meta, due)
+	}
+	return wrap(accent.Render(t.Key)+" "+t.Title, a.width) + "\n" + muted.Render(strings.Join(meta, " · "))
 }
 
 // intersperse puts a gap between the columns.

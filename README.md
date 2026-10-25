@@ -53,7 +53,7 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most u
 | Label filter | `j`/`k` · `space` toggle · `c` clear · `enter` apply · `esc` cancel |
 | Projects | `j`/`k` · `enter` opens a project: its boards, then its backlog |
 | Project page | `j`/`k` select a board or Backlog · `enter` open · `B` (Shift+B) jump straight to Backlog |
-| Board | `h`/`l` column · `j`/`k` ticket · `enter` open · `H`/`L` move the ticket a column left/right · `n` new ticket in this column · `r` reload |
+| Board | `h`/`l` column · `j`/`k` ticket · `enter` open · `H`/`L` move the ticket a column left/right · `n` new ticket in this column · `r` reload. The selected ticket's full title shows under the board. |
 | Ticket | `j`/`k` scroll · `e` edit · `m` move to a column · `c` comment · `a` assign to you (again: unassign) · `tab` pick a sub-ticket or file, `enter` open it · `o` open a picked file in your system's viewer (`xdg-open`; `open` on macOS) · `p` open the parent · `h` its history (each column it went through, who moved it, when; newest first) · `r` reload |
 | New / edit ticket | Typing is insert mode; `esc` leaves it. Then `tab` or `j`/`k` field · `i`/`enter` edit · `h`/`l` change type, priority, estimate, and spike timebox · on the due date: `h`/`l` a day, `H`/`L` a week, `x` clears · `q` cancel · `ctrl+s` save (any time) |
 | Drafts (`D`) | `j`/`k` · `r` send again · `x` discard · `enter` open its ticket (`c` or `e` there picks the draft up to change it first) |
