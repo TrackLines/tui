@@ -790,7 +790,8 @@ type ticketView struct {
 	comments []Comment
 	files    []Attachment
 	view     viewport.Model
-	sel      int // picked row, 1-based over sub-tickets then files; 0 = none (TL-514, TL-522)
+	sel      int  // picked row, 1-based over sub-tickets then files; 0 = none (TL-514, TL-522)
+	ticking  bool // the timebox countdown is running: a reload mustn't start a second one
 }
 
 type ticketData struct {
@@ -834,15 +835,24 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	case loadedMsg:
 		if d, isTicket := msg.data.(ticketData); isTicket && msg.tag == "ticket:"+v.id {
 			v.ticket, v.comments, v.files = &d.t, d.comments, d.files
+			at := v.view.YOffset // a reload (r, back, or in the background: TL-649) keeps your place
 			v.view = viewport.New(a.width, a.rows())
 			v.view.SetContent(v.detail(a))
-			return v, v.timeboxTickCmd() // live countdown while this spike is In Progress (TL-512)
+			v.view.SetYOffset(at)
+			if v.ticking {
+				return v, nil
+			}
+			tick := v.timeboxTickCmd() // live countdown while this spike is In Progress (TL-512)
+			v.ticking = tick != nil
+			return v, tick
 		}
 	case timeboxTick:
 		if msg.id != v.id {
 			return v, nil
 		}
-		return v, v.timeboxTickCmd() // re-arm; render() recomputes detail() with the current time
+		tick := v.timeboxTickCmd() // re-arm; render() recomputes detail() with the current time
+		v.ticking = tick != nil
+		return v, tick
 	case tea.KeyMsg:
 		if v.ticket == nil {
 			return v, nil
