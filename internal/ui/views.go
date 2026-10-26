@@ -790,8 +790,17 @@ type ticketView struct {
 	comments []Comment
 	files    []Attachment
 	view     viewport.Model
-	sel      int  // picked row, 1-based over sub-tickets then files; 0 = none (TL-514, TL-522)
-	ticking  bool // the timebox countdown is running: a reload mustn't start a second one
+	sel      int         // picked row, 1-based over sub-tickets then files; 0 = none (TL-514, TL-522)
+	ticking  bool        // the timebox countdown is running: a reload mustn't start a second one
+	removing *Attachment // asked to remove this file: y removes it, any other key keeps it (TL-660)
+}
+
+// pickedFile is the file tab picked, or nil.
+func (v *ticketView) pickedFile() *Attachment {
+	if i := v.sel - len(v.ticket.Children) - 1; i >= 0 && i < len(v.files) {
+		return &v.files[i]
+	}
+	return nil
 }
 
 type ticketData struct {
@@ -858,7 +867,35 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			return v, nil
 		}
 		t := v.ticket
+		if f := v.removing; f != nil {
+			v.removing = nil
+			if msg.String() != "y" {
+				a.status = muted.Render(T("Kept it."))
+				return v, nil
+			}
+			a.loading = true
+			id, name := f.ID, f.Name
+			return v, func() tea.Msg {
+				err := a.api.RemoveAttachment(context.Background(), id)
+				if e, isAPI := err.(*APIError); isAPI && e.Status == 403 && !strings.Contains(e.Msg, "read-only") {
+					err = errors.New(T("Only an organization admin or whoever uploaded it can remove this file."))
+				}
+				return statusMsg{F("Removed %s.", name), err}
+			}
+		}
 		switch msg.String() {
+		case "u": // attach a file (TL-660)
+			if t.Done {
+				a.status = muted.Render(T("This ticket is done: move it out of Done to add or remove files."))
+				return v, nil
+			}
+			return v, msgOf(pushMsg{newAttach(*t, len(v.files))})
+		case "d": // remove the picked file, once you've said so
+			if f := v.pickedFile(); f != nil && !t.Done {
+				v.removing = f
+				a.status = warn.Render(F("Remove %s? The file is deleted too. y to remove, any other key keeps it.", f.Name))
+			}
+			return v, nil
 		case "e":
 			if t.BoardID == nil {
 				return v, msgOf(pushMsg{newForm(t, t.ProjectID, "", "none")})
@@ -919,8 +956,7 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			if k := msg.String(); k == "enter" && v.sel > 0 && v.sel <= len(t.Children) {
 				return v, msgOf(pushMsg{&ticketView{id: t.Children[v.sel-1].ID}})
 			}
-			if i := v.sel - len(t.Children) - 1; i >= 0 && i < len(v.files) {
-				f := v.files[i]
+			if f := v.pickedFile(); f != nil {
 				if err := openFile(f.URL); err != nil {
 					a.status = warn.Render(F("Couldn’t open %s: %s", f.Name, err.Error()))
 				} else {
@@ -1115,6 +1151,12 @@ func (v *ticketView) treeHelp() string {
 	}
 	if v.ticket.Parent != nil {
 		h += "p parent · "
+	}
+	if !v.ticket.Done {
+		h += T("u attach file") + " · "
+		if v.pickedFile() != nil {
+			h += T("d remove file") + " · "
+		}
 	}
 	return h
 }

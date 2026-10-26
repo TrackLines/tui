@@ -273,7 +273,7 @@ func (c *Client) Comments(ctx context.Context, ticket string) ([]Comment, error)
 	return out, err
 }
 
-// Attachment is a file on a ticket (uploaded in the web app); URL is where it's served.
+// Attachment is a file on a ticket; URL is where it's served.
 type Attachment struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -288,6 +288,51 @@ func (c *Client) Attachments(ctx context.Context, ticket string) ([]Attachment, 
 	var out []Attachment
 	err := c.do(ctx, http.MethodGet, "/tickets/"+url.PathEscape(ticket)+"/attachments", nil, &out)
 	return out, err
+}
+
+// MaxFileBytes and MaxFiles are the backend's limits on a ticket's files (10 MB each, 10 a ticket).
+const (
+	MaxFileBytes = 10 << 20
+	MaxFiles     = 10
+)
+
+// Upload sends a file to a ticket through the backend, which stores it (TL-660): the TUI never holds
+// the file store's secret. No time limit but ctx's, since a big file on a slow line takes a while.
+func (c *Client) Upload(ctx context.Context, ticket, name, contentType string, body io.Reader, size int64) (Attachment, error) {
+	var out Attachment
+	err := func() error {
+		path := "/api/tickets/" + url.PathEscape(ticket) + "/attachments/upload?name=" + url.QueryEscape(name)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(c.Base, "/")+path, body)
+		if err != nil {
+			return err
+		}
+		req.ContentLength = size
+		req.Header.Set("Authorization", "Bearer "+c.Key)
+		req.Header.Set("Content-Type", contentType)
+		res, err := c.HTTP.Do(req)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+		if res.StatusCode >= 300 {
+			msg, _ := io.ReadAll(io.LimitReader(res.Body, 300))
+			return &APIError{Status: res.StatusCode, Msg: strings.TrimSpace(string(msg))}
+		}
+		return json.NewDecoder(res.Body).Decode(&out)
+	}()
+	if ctx.Err() == nil && reportable(err) && c.OnFailure != nil { // a cancel isn't a failure
+		cause := err
+		if u, isURL := err.(*url.Error); isURL {
+			cause = u.Err
+		}
+		c.OnFailure(http.MethodPost, "/tickets/"+ticket+"/attachments/upload", cause)
+	}
+	return out, err
+}
+
+// RemoveAttachment deletes a file from its ticket: whoever uploaded it, or an org admin (a 403 otherwise).
+func (c *Client) RemoveAttachment(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodDelete, "/attachments/"+url.PathEscape(id), nil, nil)
 }
 
 func (c *Client) Comment(ctx context.Context, ticket, body string) error {
