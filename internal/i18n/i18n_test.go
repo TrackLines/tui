@@ -60,6 +60,8 @@ var notText = map[string]bool{
 	"running:refinement:":         true, // fetch tags
 	"running:standup:":            true,
 	"xdg-open":                    true, // a command
+	"application/octet-stream":    true, // a content type
+	"read-only":                   true, // matched in the API's refusal of a read-only key
 }
 
 // Every T and F text has a Dutch translation, and nothing that reads as prose is shown without

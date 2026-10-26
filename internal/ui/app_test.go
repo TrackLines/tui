@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/tracklines/tui/internal/api"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -32,13 +33,18 @@ var (
 	historyFails       bool // TL-1's history can't be read (TL-598)
 	ticketDue          any  // TL-1's due_date (TL-640); nil is none
 	ticketUpdated      = "2026-10-25T10:00:00Z"
+	// uploads (TL-660): uploadFails refuses them; uploadHold, when set, keeps one waiting until it's
+	// closed or the TUI gives up; removeForbidden: the file isn't yours to remove
+	uploadFails, removeForbidden bool
+	uploadHold                   chan struct{}
+	callsMu                      sync.Mutex // guards fakeAPI's calls while requests are in flight
 )
 
 // fakeAPI is TrackLin.es for Sam: project TL with a Web board (To do → In progress → Done, Fibonacci
 // estimates), TL-1 on it, TL-2 in the backlog, and a mention.
 func fakeAPI(t *testing.T) (*Client, *[]string) {
 	var calls []string
-	var mu sync.Mutex
+	mu := &callsMu
 	var posted []map[string]any // comments added (TL-599)
 	movedT2 := false
 	flaky := 0 // searches for "flaky": the first fails
@@ -59,6 +65,25 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
+		if strings.HasSuffix(r.URL.Path, "/attachments/upload") { // the file itself, not JSON
+			n, _ := io.Copy(io.Discard, r.Body)
+			mu.Lock()
+			calls = append(calls, fmt.Sprintf("POST %s %s %d", r.URL.RequestURI(), r.Header.Get("Content-Type"), n))
+			mu.Unlock()
+			if uploadHold != nil {
+				select {
+				case <-uploadHold:
+				case <-r.Context().Done():
+					return
+				}
+			}
+			if uploadFails {
+				http.Error(w, "this ticket already has as many files as it can hold: remove one to add another", http.StatusConflict)
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]any{"id": "f2", "name": r.URL.Query().Get("name"), "size": n, "created_by": "user_1"})
+			return
+		}
 		var body map[string]any
 		json.NewDecoder(r.Body).Decode(&body)
 		b, _ := json.Marshal(body)
@@ -70,6 +95,13 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 		switch p := r.URL.Path; {
 		case apiDown && r.Method != http.MethodGet:
 			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+			return
+		case r.Method == http.MethodDelete && strings.HasPrefix(p, "/api/attachments/"):
+			if removeForbidden {
+				http.Error(w, "only an organization admin or whoever uploaded it can remove this file", http.StatusForbidden)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
 			return
 		case r.Method == http.MethodPost && strings.HasSuffix(p, "/comments"):
 			posted = append(posted, map[string]any{"id": fmt.Sprint("p", len(posted)), "body": body["body"], "author": "user_1", "created_at": time.Now().UTC().Format(time.RFC3339)})
