@@ -12,7 +12,10 @@ import (
 // catalogs: English text → the language's; a language not here is English.
 var catalogs = map[string]map[string]string{"nl": nl, "de": de, "es": es, "pt": pt, "fr": fr, "tlh": tlh}
 
-var current map[string]string // nil: English
+var (
+	current map[string]string // nil: English
+	lang    = "en"
+)
 
 // Set picks the language: en, nl, or system (the locale, else English). Unknown is English.
 func Set(language string) {
@@ -20,7 +23,14 @@ func Set(language string) {
 		language = Locale()
 	}
 	current = catalogs[language]
+	lang = "en"
+	if current != nil {
+		lang = language
+	}
 }
+
+// Lang is the language picked: en, nl, de…
+func Lang() string { return lang }
 
 // Locale is the language the environment asks for, as POSIX reads it (LC_ALL over LC_MESSAGES over
 // LANG: nl_NL.UTF-8 is nl), when there's a catalog for it; else en.

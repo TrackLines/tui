@@ -1,0 +1,448 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: tlh\n"
+
+#. href: /projects/[project]/edit
+#. fallback_href: 
+#. pages: project
+#. words: new board create second third team
+msgctxt "add-board:question"
+msgid "How do I add another board?"
+msgstr "chay' latlh 'echlet vIchel?"
+
+msgctxt "add-board:answer"
+msgid "Boards are added by organization admins. While a project has one board, use New board on the project page; after that, it’s in Edit project → Boards."
+msgstr "'echletmey chel ghom'a' loHwI'pu'. wa' 'echlet ghaj jInmol, vaj jInmol nachDaq 'echlet chu' yIlo'; ghIq jInmol yIchoH → 'echletmeyDaq tu'lu'."
+
+#. href: /dashboard
+#. fallback_href: 
+#. pages: board project dashboard
+#. words: new ticket create add issue
+msgctxt "new-ticket:question"
+msgid "How do I create a ticket?"
+msgstr "chay' ticket vIchenmoH?"
+
+msgctxt "new-ticket:answer"
+msgid "On a board, use + Add ticket under a column. New ticket in the header (on the dashboard, project and board pages) adds one to the project’s backlog."
+msgstr "'echletDaq, tut bIngDaq + ticket yIchel yIlo'. nachDaq ticket chu' (SeHlaw, jInmol, 'echlet navmeyDaq) jInmol backlogDaq wa' chel."
+
+#. href: /projects/[project]
+#. fallback_href: 
+#. pages: project
+#. words: backlog
+msgctxt "backlog:question"
+msgid "Where’s the backlog?"
+msgstr "nuqDaq backlog tu'lu'?"
+
+msgctxt "backlog:answer"
+msgid "On the project page, in the Backlog tab."
+msgstr "jInmol nachDaq, Backlog SopDaq."
+
+#. href: /boards/[board]
+#. fallback_href: 
+#. pages: board
+#. words: sprint start close end
+msgctxt "sprint:question"
+msgid "How do I start or close a sprint?"
+msgstr "chay' sprint vItagh pagh vISoQmoH?"
+
+msgctxt "sprint:answer"
+msgid "On the board’s sprint bar: Start sprint, and Close sprint once it’s running. Admins and the board’s team leads can."
+msgstr "'echlet sprint tlheghDaq: sprint yItagh, 'ej ta'lI'DI' sprint yISoQmoH. loHwI'pu' 'echlet beq DevwI'pu' je laH."
+
+#. href: /docs/standup
+#. fallback_href: 
+#. pages: board
+#. words: standup daily meeting
+msgctxt "standup:question"
+msgid "How do I run a standup?"
+msgstr "chay' Qam ghom vIDev?"
+
+msgctxt "standup:answer"
+msgid "On the board, click Standup, then Start once everyone has joined."
+msgstr "'echletDaq, Qam ghom yI'uy, ghIq Hoch ghot muvDI' yItagh yI'uy."
+
+#. href: /boards/[board]/edit
+#. fallback_href: 
+#. pages: board
+#. words: columns wip limit estimates scale settings rename
+msgctxt "edit-board:question"
+msgid "How do I change a board’s columns or WIP limits?"
+msgstr "chay' 'echlet tutmey pagh WIP veHmey vIchoH?"
+
+msgctxt "edit-board:answer"
+msgid "Open the board → Edit board. Drag columns to reorder them, set WIP limits, and change the estimate scale. Admins and the board’s team leads can edit it."
+msgstr "'echlet yIpoSmoH → 'echlet yIchoH. DamIwmeH tutmey tIlIS, WIP veHmey tIcher, pIHmeH juvwI' yIchoH. loHwI'pu' 'echlet beq DevwI'pu' je choHlaH."
+
+#. href: /docs/refinement
+#. fallback_href: 
+#. pages: project
+#. words: plan refine refinement capacity approve
+msgctxt "refine:question"
+msgid "How do I plan the next sprints?"
+msgstr "chay' sprintmey veb vInab?"
+
+msgctxt "refine:answer"
+msgid "On the project page’s Backlog tab, use Refine. Each sprint holds the team’s velocity plus 10%; more needs approval from an admin or the team lead."
+msgstr "jInmol nach Backlog SopDaq, Dubghach yIlo'. Hoch sprint ngaS beq Do 'ej 10% latlh; latlh DaneHchugh loHwI' pagh beq DevwI' chaw' poQ."
+
+#. href: /projects/[project]
+#. fallback_href: 
+#. pages: project
+#. words: move board backlog plan
+msgctxt "backlog-to-board:question"
+msgid "How do I move a backlog ticket onto a board?"
+msgstr "chay' backlog ticket 'echletDaq vIvIHmoH?"
+
+msgctxt "backlog-to-board:answer"
+msgid "Open the ticket → Edit → Move to board…, or use Move to board… in Refine. Boards with estimates ask for one first. Admins and the project’s team leads can."
+msgstr "ticket yIpoSmoH → yIchoH → 'echletDaq yIvIHmoH…, pagh DubghachDaq 'echletDaq yIvIHmoH… yIlo'. 'echletmey pIHbogh pIHghach tlhob wa'DIch. loHwI'pu' jInmol beq DevwI'pu' je laH."
+
+#. href: /projects/[project]
+#. fallback_href: 
+#. pages: board
+#. words: move transfer another board
+msgctxt "other-board:question"
+msgid "How do I move a ticket to another board?"
+msgstr "chay' latlh 'echletDaq ticket vIvIHmoH?"
+
+msgctxt "other-board:answer"
+msgid "Open the ticket → Edit → Move to board… and pick the board; open sub-tickets on this board go with it. Admins and the project’s team leads can."
+msgstr "ticket yIpoSmoH → yIchoH → 'echletDaq yIvIHmoH… 'ej 'echlet yIwIv; 'echletvamDaq ticket puqmey poSbogh tlha'. loHwI'pu' jInmol beq DevwI'pu' je laH."
+
+#. href: /boards/[board]?view=next
+#. fallback_href: 
+#. pages: board project
+#. words: next sprint planned upcoming future
+msgctxt "next-sprints:question"
+msgid "Where can I see what’s planned for the next sprint?"
+msgstr "nuqDaq sprint vebvaD nablu'pu'bogh vIleghlaH?"
+
+msgctxt "next-sprints:answer"
+msgid "On the board, open Next sprints. Planned tickets join the board when their sprint starts; until then the backlog hides them unless you choose Planned."
+msgstr "'echletDaq, sprintmey veb yIpoSmoH. sprintchaj taghDI' 'echletDaq muv ticketmey nablu'pu'bogh; ret So' backlog nablu'pu'bogh DawIvbe'chugh."
+
+#. href: /projects/[project]/archived
+#. fallback_href: 
+#. pages: project
+#. words: archived restore board
+msgctxt "archived-boards:question"
+msgid "Where are archived boards?"
+msgstr "nuqDaq 'echletmey ngaSlu'pu'bogh tu'lu'?"
+
+msgctxt "archived-boards:answer"
+msgid "In Edit project → Archived boards. Restore one from its banner."
+msgstr "jInmol yIchoH → 'echletmey ngaSlu'pu'bogh. ghItlhDaj vo' wa' yIcheghmoH."
+
+#. href: /projects/[project]/edit
+#. fallback_href: 
+#. pages: project
+#. words: prefix key ticket number
+msgctxt "key-prefix:question"
+msgid "How do I change the ticket key (like TL-)?"
+msgstr "chay' ticket ngaQHa'moHwI' (TL- rur) vIchoH?"
+
+msgctxt "key-prefix:answer"
+msgid "In Edit project → Ticket keys. Organization admins only."
+msgstr "jInmol yIchoH → ticket ngaQHa'moHwI'mey. ghom'a' loHwI'pu' neH."
+
+#. href: /boards/[board]/edit
+#. fallback_href: 
+#. pages: board
+#. words: remove archive delete board
+msgctxt "archive-board:question"
+msgid "How do I archive or delete a board?"
+msgstr "chay' 'echlet vIngaS pagh vIQaw'?"
+
+msgctxt "archive-board:answer"
+msgid "Open the board → Edit board → More. A board that’s been used can be archived (admins and its team leads); one that never was can be deleted (admins)."
+msgstr "'echlet yIpoSmoH → 'echlet yIchoH → latlh. 'echlet lo'lu'pu'bogh ngaSlu'laH (loHwI'pu' beq DevwI'pu' je); not lo'lu'pu'bogh Qaw'lu'laH (loHwI'pu')."
+
+#. href: /boards/[board]/edit
+#. fallback_href: 
+#. pages: board
+#. words: template copy setup
+msgctxt "templates:question"
+msgid "Can I reuse a board’s setup?"
+msgstr "'echlet mIw vIlo'qa'laH'a'?"
+
+msgctxt "templates:answer"
+msgid "Yes: Edit board → More → Save as template (columns, WIP limits, style and estimates, not tickets). Pick it in the Template list when making a new board. Admins only."
+msgstr "HIja': 'echlet yIchoH → latlh → mIllogh Daq yIpol (tutmey, WIP veHmey, mIw, pIHghachmey je, ticketmey ghobe'). 'echlet chu' DachenmoHDI' mIllogh tetlhDaq yIwIv. loHwI'pu' neH."
+
+#. href: /dashboard
+#. fallback_href: 
+#. pages: dashboard
+#. words: new project create
+msgctxt "new-project:question"
+msgid "How do I create a project?"
+msgstr "chay' jInmol vIchenmoH?"
+
+msgctxt "new-project:answer"
+msgid "Use New project on the dashboard. Your plan sets how many projects you can have (Free 1, Pro 5)."
+msgstr "SeHlawDaq jInmol chu' yIlo'. jInmolmey 'ar DaghajlaH 'e' cher nablIj (Free 1, Pro 5)."
+
+#. href: /my-work
+#. fallback_href: 
+#. pages: dashboard
+#. words: my tickets assigned mine
+msgctxt "my-work:question"
+msgid "Where can I see all my tickets?"
+msgstr "nuqDaq Hoch ticketmeywIj vIleghlaH?"
+
+msgctxt "my-work:answer"
+msgid "My work lists what’s assigned to you and what you raised, across every board."
+msgstr "Hoch 'echletDaq SoHvaD noblu'bogh 'ej DachenmoHbogh 'ang Qu'wIj."
+
+#. href: /docs/epics
+#. fallback_href: 
+#. pages: 
+#. words: sub task subtask child parent
+msgctxt "sub-tickets:question"
+msgid "How do I add sub-tickets?"
+msgstr "chay' ticket puqmey vIchel?"
+
+msgctxt "sub-tickets:answer"
+msgid "Open the ticket’s own page; under Sub-tickets use Add a sub-ticket… or New sub-ticket…."
+msgstr "ticket nav yIpoSmoH; ticket puqmey bIngDaq ticket puq yIchel… pagh ticket puq chu'… yIlo'."
+
+#. href: /docs/epics
+#. fallback_href: 
+#. pages: project
+#. words: epic
+msgctxt "epics:question"
+msgid "What’s an epic?"
+msgstr "nuq 'oH lut'a'?"
+
+msgctxt "epics:answer"
+msgid "A large piece of work across boards. Set a ticket’s type to Epic; epics live in the backlog and have their own tab on the project page."
+msgstr "'echletmey Hoch Qu' tIn. ticket Segh yIcher Epic; backlogDaq yIn lut'a'mey, 'ej jInmol nachDaq lut'a' Sopmey ghaj."
+
+#. href: 
+#. fallback_href: 
+#. pages: 
+#. words: blocked blocker dependency depends
+msgctxt "blocked:question"
+msgid "How do I mark a ticket as blocked?"
+msgstr "chay' ticket botlu'bogh vIper?"
+
+msgctxt "blocked:answer"
+msgid "On the ticket’s page, under Dependencies → Blocked by, use Add a blocker…. A blocked ticket can’t be claimed."
+msgstr "ticket navDaq, botwI'mey → botwI'Daq botwI' yIchel… yIlo'. ticket botlu'bogh tlhaplu'laHbe'."
+
+#. href: 
+#. fallback_href: 
+#. pages: 
+#. words: duplicate same copy
+msgctxt "duplicate:question"
+msgid "How do I mark a duplicate?"
+msgstr "chay' velqa' vIper?"
+
+msgctxt "duplicate:answer"
+msgid "On the ticket’s page, use Mark as duplicate… and pick the original. You can copy its labels and comments across."
+msgstr "ticket navDaq, velqa' yIper… yIlo' 'ej wa'DIch yIwIv. permeyDaj QInmeyDaj je Davelqa'moHlaH."
+
+#. href: /mentions
+#. fallback_href: 
+#. pages: 
+#. words: mention tag @
+msgctxt "mention:question"
+msgid "How do I mention someone?"
+msgstr "chay' ghot vIpong?"
+
+msgctxt "mention:answer"
+msgid "Type @ in a comment and pick them. They’re notified, and it shows on their Mentions page."
+msgstr "QInDaq @ yIghItlh 'ej yIwIv. ghuHmoHlu', 'ej pongmey navchajDaq 'anglu'."
+
+#. href: /mentions
+#. fallback_href: 
+#. pages: 
+#. words: watch follow subscribe unsubscribe mute notify
+msgctxt "watch:question"
+msgid "How do I watch a ticket?"
+msgstr "chay' ticket vItlha'?"
+
+msgctxt "watch:answer"
+msgid "Mention yourself in a comment (type @ and your name). Anyone mentioned on a ticket hears about its comments, moves and finishing. To stop, press the mouth next to it on your Mentions page; press it again to watch again."
+msgstr "QInDaq ponglIj yIpong (@ ponglIj je yIghItlh). ticketDaq ponglu'bogh Hoch ghot QInmeyDaj, vIHghachmeyDaj, rInghachDaj je Qoy. DamevmeH, pongmeylIj navDaq retlhDaq nuj yI'uy; Datlha'qa'meH yI'uyqa'."
+
+#. href: 
+#. fallback_href: 
+#. pages: 
+#. words: attach file upload image screenshot
+msgctxt "attach:question"
+msgid "How do I attach files?"
+msgstr "chay' ghItlhmey vIrar?"
+
+msgctxt "attach:answer"
+msgid "Use Attach files on a ticket. Up to 10 files of 10 MB each, and not while it’s in Done."
+msgstr "ticketDaq ghItlhmey tIrar yIlo'. 10 ghItlhmey veH, Hoch 10 MB, 'ej rInDaq ghaHtaHvIS Qo'."
+
+#. href: 
+#. fallback_href: 
+#. pages: 
+#. words: search find
+msgctxt "search:question"
+msgid "How do I find a ticket?"
+msgstr "chay' ticket vItu'?"
+
+msgctxt "search:answer"
+msgid "Use the search in the header (Ctrl+K or Cmd+K). It searches titles, details and comments; type a key like TL-123 to jump to it."
+msgstr "nachDaq nejmeH jan yIlo' (Ctrl+K pagh Cmd+K). pongmey, De'mey, QInmey nej; DaSupmeH TL-123 rur ngaQHa'moHwI' yIghItlh."
+
+#. href: /docs/sprint-reports
+#. fallback_href: 
+#. pages: board project
+#. words: report velocity burndown chart pdf
+msgctxt "reports:question"
+msgid "Where are sprint reports?"
+msgstr "nuqDaq sprint ja'ghachmey tu'lu'?"
+
+msgctxt "reports:answer"
+msgid "A board’s are under Past sprints → Sprint report; a project’s are in its header; the organization’s are in Settings (admins)."
+msgstr "'echlet ja'ghachmey: sprintmey ret → sprint ja'ghach; jInmol ja'ghachmey: nachDaq; ghom'a' ja'ghachmey: SeHlawDaq (loHwI'pu')."
+
+#. href: /settings/organization
+#. fallback_href: 
+#. pages: settings
+#. words: invite member people add user
+msgctxt "invite:question"
+msgid "How do I invite people?"
+msgstr "chay' ghotpu' vIrI'?"
+
+msgctxt "invite:answer"
+msgid "Organization admins invite from Settings → Manage organization → Invite people. Free and Pro have up to 20 members; AI agents don’t count."
+msgstr "SeHlaw → ghom'a' yIloH → ghotpu' tIrI' vo' rI' ghom'a' loHwI'pu'. 20 beqpu' veH ghaj Free Pro je; AI vumwI'pu' toghlu'be'."
+
+#. href: /settings/organization
+#. fallback_href: 
+#. pages: settings
+#. words: team lead leader
+msgctxt "teams:question"
+msgid "How do I set up teams and team leads?"
+msgstr "chay' beqmey beq DevwI'pu' je vIcher?"
+
+msgctxt "teams:answer"
+msgid "In Settings → Manage organization → Teams: create a team, add members, Make leader, and link its boards. Organization admins only."
+msgstr "SeHlaw → ghom'a' yIloH → beqmeyDaq: beq yIchenmoH, beqpu' tIchel, DevwI' yIchenmoH, 'echletmeyDaj tIrar. ghom'a' loHwI'pu' neH."
+
+#. href: /docs/google-calendar
+#. fallback_href: 
+#. pages: settings
+#. words: holiday away leave vacation calendar
+msgctxt "holiday:question"
+msgid "How does it know who’s on holiday?"
+msgstr "chay' leSpoHDaq ghaHtaH 'Iv 'e' Sov?"
+
+msgctxt "holiday:answer"
+msgid "An organization admin connects Google Calendar in Settings → Integrations → Calendars; people away are marked in assigning and standup."
+msgstr "SeHlaw → rarghachmey → poH nav Daq Google Calendar rar ghom'a' loHwI'; Qu' nobmeH Qam ghomDaq je naDev ghobe'bogh ghotpu' tu'lu'."
+
+#. href: /projects/[project]/edit
+#. fallback_href: /settings/integrations
+#. pages: project settings
+#. words: github bitbucket repo repository pull request pr git
+msgctxt "repos:question"
+msgid "How do I link a GitHub repository?"
+msgstr "chay' GitHub repository vIrar?"
+
+msgctxt "repos:answer"
+msgid "An admin connects GitHub or Bitbucket in Settings → Integrations, then links repos in Edit project → Repositories. Pull requests that mention a ticket’s key show on it, and merging finishes it."
+msgstr "SeHlaw → rarghachmeyDaq GitHub pagh Bitbucket rar loHwI', ghIq jInmol yIchoH → repositorymeyDaq repomey rar. pull requestmey ticket ngaQHa'moHwI' pongbogh ticketDaq 'anglu', 'ej mungDI' rInmoH."
+
+#. href: /account/api-keys
+#. fallback_href: 
+#. pages: account settings
+#. words: api key token
+msgctxt "api-keys:question"
+msgid "Where do I get an API key?"
+msgstr "nuqDaq API ngaQHa'moHwI' vIHevlaH?"
+
+msgctxt "api-keys:answer"
+msgid "Your own and AI agent keys are in Your settings → API keys. Service keys for integrations are in Settings → API keys, made by admins."
+msgstr "SeHlawlIj → API ngaQHa'moHwI'meyDaq ngaQHa'moHwI'meylIj AI vumwI' ngaQHa'moHwI'mey je tu'lu'. SeHlaw → API ngaQHa'moHwI'meyDaq rarghachmeyvaD QaH ngaQHa'moHwI'mey tu'lu', loHwI'pu' chenmoH."
+
+#. href: /docs/mcp
+#. fallback_href: 
+#. pages: account
+#. words: ai agent claude codex cursor mcp
+msgctxt "ai-agent:question"
+msgid "How do I connect an AI agent?"
+msgstr "chay' AI vumwI' vIrar?"
+
+msgctxt "ai-agent:answer"
+msgid "Make an AI key in Your settings → API keys, then use Connect AI to set up Claude Code, Codex, Cursor or others over MCP."
+msgstr "SeHlawlIj → API ngaQHa'moHwI'meyDaq AI ngaQHa'moHwI' yIchenmoH, ghIq MCP vegh Claude Code, Codex, Cursor latlh je DachermeH AI yIrar yIlo'."
+
+#. href: /projects/[project]
+#. fallback_href: /roadmaps
+#. pages: project
+#. words: roadmap publish public
+msgctxt "roadmap:question"
+msgid "How do I make a roadmap?"
+msgstr "chay' He nav vIchenmoH?"
+
+msgctxt "roadmap:answer"
+msgid "On the project page, open the Roadmaps tab → New roadmap. Admins publish it."
+msgstr "jInmol nachDaq, He navmey Sop yIpoSmoH → He nav chu'. loHwI'pu' ngeH."
+
+#. href: /projects/[project]/edit
+#. fallback_href: 
+#. pages: project
+#. words: request form customer feedback feature bug
+msgctxt "requests:question"
+msgid "Can customers send us requests?"
+msgstr "maHvaD tlhobmey ngeHlaH'a' DevaDpu'?"
+
+msgctxt "requests:answer"
+msgid "Yes: an admin turns on the Request form in Edit project. Requests arrive behind the Requests button on the project page."
+msgstr "HIja': jInmol yIchoHDaq tlhobmeH nav chu' loHwI'. jInmol nachDaq tlhobmey leQ 'emDaq paw tlhobmey."
+
+#. href: /settings
+#. fallback_href: 
+#. pages: settings
+#. words: upgrade plan billing pro enterprise pay subscription
+msgctxt "plan:question"
+msgid "How do I upgrade or change plan?"
+msgstr "chay' nab vIDub pagh vIchoH?"
+
+msgctxt "plan:answer"
+msgid "Organization admins use the Plan card in Settings."
+msgstr "SeHlawDaq nab ghItlhHom lo' ghom'a' loHwI'pu'."
+
+#. href: 
+#. fallback_href: 
+#. pages: 
+#. words: dark light theme appearance
+msgctxt "theme:question"
+msgid "How do I switch to dark mode?"
+msgstr "chay' Hurgh mIwDaq vIleS?"
+
+msgctxt "theme:answer"
+msgid "Use the appearance button in the header: Light, Dark or System."
+msgstr "nachDaq narghghach leQ yIlo': wov, Hurgh pagh mIw motlh."
+
+#. href: /account
+#. fallback_href: 
+#. pages: account
+#. words: language dutch nederlands english
+msgctxt "language:question"
+msgid "Can I change the language?"
+msgstr "Hol vIchoHlaH'a'?"
+
+msgctxt "language:answer"
+msgid "When it’s available for you, choose it in Your settings → Language."
+msgstr "SoHvaD tu'lu'DI', SeHlawlIj → HolDaq yIwIv."
+
+#. href: /account
+#. fallback_href: 
+#. pages: account
+#. words: notification email bell
+msgctxt "notifications:question"
+msgid "How do I change my notifications?"
+msgstr "chay' ghuHmeywIj vIchoH?"
+
+msgctxt "notifications:answer"
+msgid "Open the bell in the header → Notification settings."
+msgstr "nachDaq 'In yIpoSmoH → ghuH SeHlaw."

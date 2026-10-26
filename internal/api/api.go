@@ -489,3 +489,31 @@ func (c *Client) RunningSessions(ctx context.Context) ([]RunningSession, error) 
 	err := c.do(ctx, http.MethodGet, "/live/sessions", nil, &out)
 	return out, err
 }
+
+// Help is the help answers in locale (TL-657) as JSON, unless they're still etag: then nil, the same
+// etag. Quiet: a background check, so failing isn't reported (the answers held stay).
+func (c *Client) Help(ctx context.Context, locale, etag string) ([]byte, string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(c.Base, "/")+"/api/help?locale="+url.QueryEscape(locale), nil)
+	if err != nil {
+		return nil, etag, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.Key)
+	if etag != "" {
+		req.Header.Set("If-None-Match", etag)
+	}
+	res, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, etag, err
+	}
+	defer res.Body.Close()
+	switch {
+	case res.StatusCode == http.StatusNotModified:
+		return nil, etag, nil
+	case res.StatusCode != http.StatusOK:
+		return nil, etag, &APIError{Status: res.StatusCode, Msg: res.Status}
+	}
+	b, err := io.ReadAll(io.LimitReader(res.Body, 4<<20))
+	return b, res.Header.Get("ETag"), err
+}

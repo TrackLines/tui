@@ -1,0 +1,448 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: pt\n"
+
+#. href: /projects/[project]/edit
+#. fallback_href: 
+#. pages: project
+#. words: new board create second third team
+msgctxt "add-board:question"
+msgid "How do I add another board?"
+msgstr "Como adiciono outro quadro?"
+
+msgctxt "add-board:answer"
+msgid "Boards are added by organization admins. While a project has one board, use New board on the project page; after that, it’s in Edit project → Boards."
+msgstr "Os quadros são adicionados por admins da organização. Enquanto um projeto tem um quadro, use Novo quadro na página do projeto; depois disso, fica em Editar projeto → Quadros."
+
+#. href: /dashboard
+#. fallback_href: 
+#. pages: board project dashboard
+#. words: new ticket create add issue
+msgctxt "new-ticket:question"
+msgid "How do I create a ticket?"
+msgstr "Como crio um ticket?"
+
+msgctxt "new-ticket:answer"
+msgid "On a board, use + Add ticket under a column. New ticket in the header (on the dashboard, project and board pages) adds one to the project’s backlog."
+msgstr "Em um quadro, use + Adicionar ticket abaixo de uma coluna. Novo ticket no cabeçalho (nas páginas de painel, projeto e quadro) adiciona um ao backlog do projeto."
+
+#. href: /projects/[project]
+#. fallback_href: 
+#. pages: project
+#. words: backlog
+msgctxt "backlog:question"
+msgid "Where’s the backlog?"
+msgstr "Onde fica o backlog?"
+
+msgctxt "backlog:answer"
+msgid "On the project page, in the Backlog tab."
+msgstr "Na página do projeto, na aba Backlog."
+
+#. href: /boards/[board]
+#. fallback_href: 
+#. pages: board
+#. words: sprint start close end
+msgctxt "sprint:question"
+msgid "How do I start or close a sprint?"
+msgstr "Como inicio ou fecho uma sprint?"
+
+msgctxt "sprint:answer"
+msgid "On the board’s sprint bar: Start sprint, and Close sprint once it’s running. Admins and the board’s team leads can."
+msgstr "Na barra de sprint do quadro: Iniciar sprint, e Fechar sprint quando ela estiver em andamento. Admins e os líderes de equipe do quadro podem fazer isso."
+
+#. href: /docs/standup
+#. fallback_href: 
+#. pages: board
+#. words: standup daily meeting
+msgctxt "standup:question"
+msgid "How do I run a standup?"
+msgstr "Como conduzo um standup?"
+
+msgctxt "standup:answer"
+msgid "On the board, click Standup, then Start once everyone has joined."
+msgstr "No quadro, clique em Standup e depois em Iniciar quando todos tiverem entrado."
+
+#. href: /boards/[board]/edit
+#. fallback_href: 
+#. pages: board
+#. words: columns wip limit estimates scale settings rename
+msgctxt "edit-board:question"
+msgid "How do I change a board’s columns or WIP limits?"
+msgstr "Como altero as colunas ou os limites de WIP de um quadro?"
+
+msgctxt "edit-board:answer"
+msgid "Open the board → Edit board. Drag columns to reorder them, set WIP limits, and change the estimate scale. Admins and the board’s team leads can edit it."
+msgstr "Abra o quadro → Editar quadro. Arraste as colunas para reordená-las, defina limites de WIP e altere a escala de estimativa. Admins e os líderes de equipe do quadro podem editá-lo."
+
+#. href: /docs/refinement
+#. fallback_href: 
+#. pages: project
+#. words: plan refine refinement capacity approve
+msgctxt "refine:question"
+msgid "How do I plan the next sprints?"
+msgstr "Como planejo as próximas sprints?"
+
+msgctxt "refine:answer"
+msgid "On the project page’s Backlog tab, use Refine. Each sprint holds the team’s velocity plus 10%; more needs approval from an admin or the team lead."
+msgstr "Na aba Backlog da página do projeto, use Refinar. Cada sprint comporta a velocidade da equipe mais 10%; mais do que isso precisa da aprovação de um admin ou do líder da equipe."
+
+#. href: /projects/[project]
+#. fallback_href: 
+#. pages: project
+#. words: move board backlog plan
+msgctxt "backlog-to-board:question"
+msgid "How do I move a backlog ticket onto a board?"
+msgstr "Como movo um ticket do backlog para um quadro?"
+
+msgctxt "backlog-to-board:answer"
+msgid "Open the ticket → Edit → Move to board…, or use Move to board… in Refine. Boards with estimates ask for one first. Admins and the project’s team leads can."
+msgstr "Abra o ticket → Editar → Mover para o quadro…, ou use Mover para o quadro… no Refinar. Quadros com estimativas pedem uma antes. Admins e os líderes de equipe do projeto podem fazer isso."
+
+#. href: /projects/[project]
+#. fallback_href: 
+#. pages: board
+#. words: move transfer another board
+msgctxt "other-board:question"
+msgid "How do I move a ticket to another board?"
+msgstr "Como movo um ticket para outro quadro?"
+
+msgctxt "other-board:answer"
+msgid "Open the ticket → Edit → Move to board… and pick the board; open sub-tickets on this board go with it. Admins and the project’s team leads can."
+msgstr "Abra o ticket → Editar → Mover para o quadro… e escolha o quadro; os sub-tickets abertos neste quadro vão junto. Admins e os líderes de equipe do projeto podem fazer isso."
+
+#. href: /boards/[board]?view=next
+#. fallback_href: 
+#. pages: board project
+#. words: next sprint planned upcoming future
+msgctxt "next-sprints:question"
+msgid "Where can I see what’s planned for the next sprint?"
+msgstr "Onde vejo o que está planejado para a próxima sprint?"
+
+msgctxt "next-sprints:answer"
+msgid "On the board, open Next sprints. Planned tickets join the board when their sprint starts; until then the backlog hides them unless you choose Planned."
+msgstr "No quadro, abra Próximas sprints. Os tickets planejados entram no quadro quando a sprint deles começa; até lá, o backlog os oculta, a menos que você escolha Planejados."
+
+#. href: /projects/[project]/archived
+#. fallback_href: 
+#. pages: project
+#. words: archived restore board
+msgctxt "archived-boards:question"
+msgid "Where are archived boards?"
+msgstr "Onde ficam os quadros arquivados?"
+
+msgctxt "archived-boards:answer"
+msgid "In Edit project → Archived boards. Restore one from its banner."
+msgstr "Em Editar projeto → Quadros arquivados. Restaure um pelo banner dele."
+
+#. href: /projects/[project]/edit
+#. fallback_href: 
+#. pages: project
+#. words: prefix key ticket number
+msgctxt "key-prefix:question"
+msgid "How do I change the ticket key (like TL-)?"
+msgstr "Como altero a chave do ticket (como TL-)?"
+
+msgctxt "key-prefix:answer"
+msgid "In Edit project → Ticket keys. Organization admins only."
+msgstr "Em Editar projeto → Chaves de ticket. Somente admins da organização."
+
+#. href: /boards/[board]/edit
+#. fallback_href: 
+#. pages: board
+#. words: remove archive delete board
+msgctxt "archive-board:question"
+msgid "How do I archive or delete a board?"
+msgstr "Como arquivo ou excluo um quadro?"
+
+msgctxt "archive-board:answer"
+msgid "Open the board → Edit board → More. A board that’s been used can be archived (admins and its team leads); one that never was can be deleted (admins)."
+msgstr "Abra o quadro → Editar quadro → Mais. Um quadro que já foi usado pode ser arquivado (admins e os líderes de equipe dele); um que nunca foi usado pode ser excluído (admins)."
+
+#. href: /boards/[board]/edit
+#. fallback_href: 
+#. pages: board
+#. words: template copy setup
+msgctxt "templates:question"
+msgid "Can I reuse a board’s setup?"
+msgstr "Posso reutilizar a configuração de um quadro?"
+
+msgctxt "templates:answer"
+msgid "Yes: Edit board → More → Save as template (columns, WIP limits, style and estimates, not tickets). Pick it in the Template list when making a new board. Admins only."
+msgstr "Sim: Editar quadro → Mais → Salvar como modelo (colunas, limites de WIP, estilo e estimativas, não os tickets). Escolha-o na lista Modelo ao criar um novo quadro. Somente admins."
+
+#. href: /dashboard
+#. fallback_href: 
+#. pages: dashboard
+#. words: new project create
+msgctxt "new-project:question"
+msgid "How do I create a project?"
+msgstr "Como crio um projeto?"
+
+msgctxt "new-project:answer"
+msgid "Use New project on the dashboard. Your plan sets how many projects you can have (Free 1, Pro 5)."
+msgstr "Use Novo projeto no painel. Seu plano define quantos projetos você pode ter (Free 1, Pro 5)."
+
+#. href: /my-work
+#. fallback_href: 
+#. pages: dashboard
+#. words: my tickets assigned mine
+msgctxt "my-work:question"
+msgid "Where can I see all my tickets?"
+msgstr "Onde vejo todos os meus tickets?"
+
+msgctxt "my-work:answer"
+msgid "My work lists what’s assigned to you and what you raised, across every board."
+msgstr "Meu trabalho lista o que está atribuído a você e o que você abriu, em todos os quadros."
+
+#. href: /docs/epics
+#. fallback_href: 
+#. pages: 
+#. words: sub task subtask child parent
+msgctxt "sub-tickets:question"
+msgid "How do I add sub-tickets?"
+msgstr "Como adiciono sub-tickets?"
+
+msgctxt "sub-tickets:answer"
+msgid "Open the ticket’s own page; under Sub-tickets use Add a sub-ticket… or New sub-ticket…."
+msgstr "Abra a página do próprio ticket; em Sub-tickets, use Adicionar um sub-ticket… ou Novo sub-ticket…."
+
+#. href: /docs/epics
+#. fallback_href: 
+#. pages: project
+#. words: epic
+msgctxt "epics:question"
+msgid "What’s an epic?"
+msgstr "O que é um épico?"
+
+msgctxt "epics:answer"
+msgid "A large piece of work across boards. Set a ticket’s type to Epic; epics live in the backlog and have their own tab on the project page."
+msgstr "Um trabalho grande que abrange vários quadros. Defina o tipo de um ticket como Épico; os épicos ficam no backlog e têm uma aba própria na página do projeto."
+
+#. href: 
+#. fallback_href: 
+#. pages: 
+#. words: blocked blocker dependency depends
+msgctxt "blocked:question"
+msgid "How do I mark a ticket as blocked?"
+msgstr "Como marco um ticket como bloqueado?"
+
+msgctxt "blocked:answer"
+msgid "On the ticket’s page, under Dependencies → Blocked by, use Add a blocker…. A blocked ticket can’t be claimed."
+msgstr "Na página do ticket, em Dependências → Bloqueado por, use Adicionar um bloqueador…. Um ticket bloqueado não pode ser assumido."
+
+#. href: 
+#. fallback_href: 
+#. pages: 
+#. words: duplicate same copy
+msgctxt "duplicate:question"
+msgid "How do I mark a duplicate?"
+msgstr "Como marco um duplicado?"
+
+msgctxt "duplicate:answer"
+msgid "On the ticket’s page, use Mark as duplicate… and pick the original. You can copy its labels and comments across."
+msgstr "Na página do ticket, use Marcar como duplicado… e escolha o original. Você pode copiar as etiquetas e os comentários dele."
+
+#. href: /mentions
+#. fallback_href: 
+#. pages: 
+#. words: mention tag @
+msgctxt "mention:question"
+msgid "How do I mention someone?"
+msgstr "Como menciono alguém?"
+
+msgctxt "mention:answer"
+msgid "Type @ in a comment and pick them. They’re notified, and it shows on their Mentions page."
+msgstr "Digite @ em um comentário e escolha a pessoa. Ela é notificada, e isso aparece na página de Menções dela."
+
+#. href: /mentions
+#. fallback_href: 
+#. pages: 
+#. words: watch follow subscribe unsubscribe mute notify
+msgctxt "watch:question"
+msgid "How do I watch a ticket?"
+msgstr "Como acompanho um ticket?"
+
+msgctxt "watch:answer"
+msgid "Mention yourself in a comment (type @ and your name). Anyone mentioned on a ticket hears about its comments, moves and finishing. To stop, press the mouth next to it on your Mentions page; press it again to watch again."
+msgstr "Mencione a si mesmo em um comentário (digite @ e seu nome). Quem é mencionado em um ticket fica sabendo dos comentários, movimentações e conclusão dele. Para parar, clique na boca ao lado dele na sua página de Menções; clique de novo para voltar a acompanhar."
+
+#. href: 
+#. fallback_href: 
+#. pages: 
+#. words: attach file upload image screenshot
+msgctxt "attach:question"
+msgid "How do I attach files?"
+msgstr "Como anexo arquivos?"
+
+msgctxt "attach:answer"
+msgid "Use Attach files on a ticket. Up to 10 files of 10 MB each, and not while it’s in Done."
+msgstr "Use Anexar arquivos em um ticket. Até 10 arquivos de 10 MB cada, e não enquanto ele estiver em Concluído."
+
+#. href: 
+#. fallback_href: 
+#. pages: 
+#. words: search find
+msgctxt "search:question"
+msgid "How do I find a ticket?"
+msgstr "Como encontro um ticket?"
+
+msgctxt "search:answer"
+msgid "Use the search in the header (Ctrl+K or Cmd+K). It searches titles, details and comments; type a key like TL-123 to jump to it."
+msgstr "Use a pesquisa no cabeçalho (Ctrl+K ou Cmd+K). Ela pesquisa títulos, detalhes e comentários; digite uma chave como TL-123 para ir direto a ele."
+
+#. href: /docs/sprint-reports
+#. fallback_href: 
+#. pages: board project
+#. words: report velocity burndown chart pdf
+msgctxt "reports:question"
+msgid "Where are sprint reports?"
+msgstr "Onde ficam os relatórios de sprint?"
+
+msgctxt "reports:answer"
+msgid "A board’s are under Past sprints → Sprint report; a project’s are in its header; the organization’s are in Settings (admins)."
+msgstr "Os de um quadro ficam em Sprints anteriores → Relatório da sprint; os de um projeto, no cabeçalho dele; os da organização, em Configurações (admins)."
+
+#. href: /settings/organization
+#. fallback_href: 
+#. pages: settings
+#. words: invite member people add user
+msgctxt "invite:question"
+msgid "How do I invite people?"
+msgstr "Como convido pessoas?"
+
+msgctxt "invite:answer"
+msgid "Organization admins invite from Settings → Manage organization → Invite people. Free and Pro have up to 20 members; AI agents don’t count."
+msgstr "Os admins da organização convidam em Configurações → Gerenciar organização → Convidar pessoas. Free e Pro têm até 20 membros; agentes de IA não contam."
+
+#. href: /settings/organization
+#. fallback_href: 
+#. pages: settings
+#. words: team lead leader
+msgctxt "teams:question"
+msgid "How do I set up teams and team leads?"
+msgstr "Como configuro equipes e líderes de equipe?"
+
+msgctxt "teams:answer"
+msgid "In Settings → Manage organization → Teams: create a team, add members, Make leader, and link its boards. Organization admins only."
+msgstr "Em Configurações → Gerenciar organização → Equipes: crie uma equipe, adicione membros, use Tornar líder e vincule os quadros dela. Somente admins da organização."
+
+#. href: /docs/google-calendar
+#. fallback_href: 
+#. pages: settings
+#. words: holiday away leave vacation calendar
+msgctxt "holiday:question"
+msgid "How does it know who’s on holiday?"
+msgstr "Como ele sabe quem está de férias?"
+
+msgctxt "holiday:answer"
+msgid "An organization admin connects Google Calendar in Settings → Integrations → Calendars; people away are marked in assigning and standup."
+msgstr "Um admin da organização conecta o Google Calendar em Configurações → Integrações → Calendários; pessoas ausentes ficam marcadas na atribuição e no standup."
+
+#. href: /projects/[project]/edit
+#. fallback_href: /settings/integrations
+#. pages: project settings
+#. words: github bitbucket repo repository pull request pr git
+msgctxt "repos:question"
+msgid "How do I link a GitHub repository?"
+msgstr "Como vinculo um repositório do GitHub?"
+
+msgctxt "repos:answer"
+msgid "An admin connects GitHub or Bitbucket in Settings → Integrations, then links repos in Edit project → Repositories. Pull requests that mention a ticket’s key show on it, and merging finishes it."
+msgstr "Um admin conecta o GitHub ou o Bitbucket em Configurações → Integrações e depois vincula repositórios em Editar projeto → Repositórios. Pull requests que mencionam a chave de um ticket aparecem nele, e o merge o conclui."
+
+#. href: /account/api-keys
+#. fallback_href: 
+#. pages: account settings
+#. words: api key token
+msgctxt "api-keys:question"
+msgid "Where do I get an API key?"
+msgstr "Onde consigo uma chave de API?"
+
+msgctxt "api-keys:answer"
+msgid "Your own and AI agent keys are in Your settings → API keys. Service keys for integrations are in Settings → API keys, made by admins."
+msgstr "Suas próprias chaves e as de agentes de IA ficam em Suas configurações → Chaves de API. As chaves de serviço para integrações ficam em Configurações → Chaves de API, criadas por admins."
+
+#. href: /docs/mcp
+#. fallback_href: 
+#. pages: account
+#. words: ai agent claude codex cursor mcp
+msgctxt "ai-agent:question"
+msgid "How do I connect an AI agent?"
+msgstr "Como conecto um agente de IA?"
+
+msgctxt "ai-agent:answer"
+msgid "Make an AI key in Your settings → API keys, then use Connect AI to set up Claude Code, Codex, Cursor or others over MCP."
+msgstr "Crie uma chave de IA em Suas configurações → Chaves de API e depois use Conectar IA para configurar Claude Code, Codex, Cursor ou outros via MCP."
+
+#. href: /projects/[project]
+#. fallback_href: /roadmaps
+#. pages: project
+#. words: roadmap publish public
+msgctxt "roadmap:question"
+msgid "How do I make a roadmap?"
+msgstr "Como faço um roadmap?"
+
+msgctxt "roadmap:answer"
+msgid "On the project page, open the Roadmaps tab → New roadmap. Admins publish it."
+msgstr "Na página do projeto, abra a aba Roadmaps → Novo roadmap. Admins o publicam."
+
+#. href: /projects/[project]/edit
+#. fallback_href: 
+#. pages: project
+#. words: request form customer feedback feature bug
+msgctxt "requests:question"
+msgid "Can customers send us requests?"
+msgstr "Os clientes podem nos enviar solicitações?"
+
+msgctxt "requests:answer"
+msgid "Yes: an admin turns on the Request form in Edit project. Requests arrive behind the Requests button on the project page."
+msgstr "Sim: um admin ativa o Formulário de solicitações em Editar projeto. As solicitações chegam pelo botão Solicitações na página do projeto."
+
+#. href: /settings
+#. fallback_href: 
+#. pages: settings
+#. words: upgrade plan billing pro enterprise pay subscription
+msgctxt "plan:question"
+msgid "How do I upgrade or change plan?"
+msgstr "Como faço upgrade ou mudo de plano?"
+
+msgctxt "plan:answer"
+msgid "Organization admins use the Plan card in Settings."
+msgstr "Os admins da organização usam o cartão Plano em Configurações."
+
+#. href: 
+#. fallback_href: 
+#. pages: 
+#. words: dark light theme appearance
+msgctxt "theme:question"
+msgid "How do I switch to dark mode?"
+msgstr "Como mudo para o modo escuro?"
+
+msgctxt "theme:answer"
+msgid "Use the appearance button in the header: Light, Dark or System."
+msgstr "Use o botão de aparência no cabeçalho: Claro, Escuro ou Sistema."
+
+#. href: /account
+#. fallback_href: 
+#. pages: account
+#. words: language dutch nederlands english
+msgctxt "language:question"
+msgid "Can I change the language?"
+msgstr "Posso mudar o idioma?"
+
+msgctxt "language:answer"
+msgid "When it’s available for you, choose it in Your settings → Language."
+msgstr "Quando estiver disponível para você, escolha em Suas configurações → Idioma."
+
+#. href: /account
+#. fallback_href: 
+#. pages: account
+#. words: notification email bell
+msgctxt "notifications:question"
+msgid "How do I change my notifications?"
+msgstr "Como altero minhas notificações?"
+
+msgctxt "notifications:answer"
+msgid "Open the bell in the header → Notification settings."
+msgstr "Abra o sino no cabeçalho → Configurações de notificação."

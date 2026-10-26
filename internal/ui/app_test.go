@@ -154,6 +154,14 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 			out = append([]map[string]any{{"id": "m1", "body": "on it", "author": "user_1", "created_at": "2026-10-20T08:00:00Z"}}, posted...)
 		case p == "/api/boards/b1":
 			out = board
+		case p == "/api/help": // newer help answers than the baked ones (TL-657)
+			if r.Header.Get("If-None-Match") == `"h2"` {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+			w.Header().Set("ETag", `"h2"`)
+			out = []map[string]any{{"slug": "fresh", "question": "How do I add another board?", "answer": "From the API: Edit project → Boards.",
+				"href": "/projects/[project]/edit", "fallback_href": "", "pages": []string{"project"}, "words": "board"}}
 		case p == "/api/assignees":
 			out = []map[string]any{{"id": "user_1", "label": "You", "name": "Sam Doe"}, {"id": "user_2", "label": "Alex", "name": "Alex Roe"}, {"id": "Claude", "label": "Claude", "kind": "ai"}}
 		case p == "/api/projects":
@@ -1053,6 +1061,36 @@ func TestAboutAndUpdateNotice(t *testing.T) {
 	expect(t, a, "v0.2.0 is out · ? to update")
 	press(a, "?")
 	expect(t, a, "v0.2.0 is out.", "u to update")
+}
+
+// ? then h is the help answers (TL-657): the API's newer ones replace the baked ones without a restart,
+// typing searches them, and enter opens the page for the project you came from.
+func TestHelpAnswers(t *testing.T) {
+	var opened []string
+	real := openFile
+	openFile = func(url string) error { opened = append(opened, url); return nil }
+	t.Cleanup(func() { openFile = real })
+	a, calls := start(t)
+	if find(*calls, "GET /api/help?locale=en") == "" {
+		t.Fatalf("help isn't checked on starting: %v", *calls)
+	}
+	press(a, "2", "enter") // TrackLines: a project to fill [project] in
+	press(a, "?", "h")
+	expect(t, a, "Help", "How do I add another board?", "From the API: Edit project → Boards.")
+	press(a, "b", "o", "a", "r", "d", "enter")
+	if len(opened) != 1 || opened[0] != siteURL(a.api.Base)+"/projects/p1/edit" {
+		t.Fatalf("opened %v", opened)
+	}
+	// the next refresh sends what it has: unchanged, so nothing is swapped
+	before := len(*calls)
+	_, cmd := a.Update(refreshTick{})
+	pump(a, cmd, 0)
+	if c := find((*calls)[before:], "GET /api/help"); c == "" {
+		t.Fatalf("the refresh didn't check help: %v", (*calls)[before:])
+	}
+	expect(t, a, "From the API")
+	press(a, "x", "y", "z", "z", "y")
+	expect(t, a, "Nothing about that yet")
 }
 
 // backlog_sort in the config: every backlog opens in that order, and s cycles on from there (TL-481).
