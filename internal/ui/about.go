@@ -38,6 +38,9 @@ func (v *aboutView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		a.updated, a.latest = msg.tag, nil
 		a.status = ok.Render(F("Updated to %s. Quit and start tracklines again to use it.", msg.tag))
 	case tea.KeyMsg:
+		if msg.String() == "h" {
+			return v, msgOf(pushMsg{newHelp()})
+		}
 		if msg.String() != "u" || a.latest == nil || v.updating {
 			return v, nil
 		}
@@ -81,6 +84,7 @@ func (v *aboutView) render(a *app) string {
 		{"esc / q", T("back (q quits on My work and Projects)")},
 		{"Q", T("quit from anywhere")},
 		{"?", T("this screen")},
+		{"? h", T("help: answers to common questions")},
 	} {
 		b.WriteString(fmt.Sprintf("  %-8s %s\n", k[0], k[1]))
 	}
@@ -92,6 +96,6 @@ func (v *aboutView) help() string {
 	if v.updating {
 		return T("updating…")
 	}
-	return T("u update (when there's one) · esc/q back")
+	return T("h help answers · u update (when there's one) · esc/q back")
 }
 func (v *aboutView) typing() bool { return false }

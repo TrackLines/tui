@@ -11,7 +11,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/tracklines/tui/internal/config"
 	"github.com/tracklines/tui/internal/drafts"
+	"github.com/tracklines/tui/internal/help"
+	"github.com/tracklines/tui/internal/i18n"
 	"github.com/tracklines/tui/internal/update"
 	"github.com/tracklines/tui/internal/usage"
 )
@@ -53,6 +56,7 @@ type app struct {
 	usage         usage.Projects
 	drafts        drafts.Store      // comments and edits that didn't reach the server (TL-599)
 	favourites    []usage.Favourite // tabs 3–5: the projects you open most (TL-477)
+	help          *help.Store       // the help answers, kept up to date in the background (TL-657)
 }
 
 type (
@@ -82,6 +86,8 @@ type (
 
 func newApp(api *Client) *app {
 	a := &app{api: api, usage: usage.Load(), drafts: drafts.Load()}
+	dir, _ := config.StateDir() // ponytail: no state dir, no cache: the baked answers, then the API's
+	a.help = help.Open(i18n.Lang(), dir)
 	a.favourites = a.usage.Top(3)
 	if n := len(a.drafts); n > 0 {
 		msg := F("%d unsent drafts", n)
@@ -158,7 +164,7 @@ func (a *app) refresh() tea.Cmd {
 
 func (a *app) Init() tea.Cmd {
 	a.loading = true
-	return tea.Batch(a.top().load(a), a.checkUpdate(), refreshLater(), func() tea.Msg {
+	return tea.Batch(a.top().load(a), a.checkUpdate(), refreshLater(), a.fetchHelp(), func() tea.Msg {
 		p, me, _ := a.api.People(context.Background()) // ponytail: without names, comments show ids; not worth an error
 		return peopleMsg{p, me}
 	})
@@ -201,7 +207,12 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.people, a.me = msg.people, msg.me
 		return a, nil
 	case refreshTick:
-		return a, tea.Batch(refreshLater(), a.refresh())
+		if a.away {
+			return a, refreshLater()
+		}
+		return a, tea.Batch(refreshLater(), a.refresh(), a.fetchHelp())
+	case helpUpdatedMsg:
+		return a, nil // the help screen, if it's showing, redraws with them
 	case tea.BlurMsg:
 		a.away = true
 		return a, nil
