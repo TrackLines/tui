@@ -165,6 +165,21 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 		case strings.HasPrefix(p, "/api/ticket-keys/"):
 			http.Error(w, "not found", http.StatusNotFound)
 			return
+		case p == "/api/tickets/t1/activity" && historyFails, p == "/api/tickets/t1/history" && historyFails:
+			http.Error(w, "history is down", http.StatusBadGateway)
+			return
+		case p == "/api/tickets/t1/activity": // oldest first (TL-681)
+			out = []map[string]any{
+				{"id": "e1", "at": "2026-10-20T09:00:00Z", "actor": "user_2", "actor_kind": "person", "action": "ticket.stage", "data": map[string]any{"stage": "backlog", "outcome": "entered"}},
+				{"id": "e2", "at": "2026-10-21T09:00:00Z", "actor": "user_1", "actor_kind": "person", "action": "ticket.stage", "data": map[string]any{"stage": "column", "outcome": "entered", "board_name": "Web", "column_name": "To do"}},
+				{"id": "e3", "at": "2026-10-21T10:00:00Z", "actor": "user_1", "actor_kind": "person", "action": "ticket.assigned", "data": map[string]any{"from": nil, "to": "user_2"}},
+				{"id": "e4", "at": "2026-10-21T11:00:00Z", "actor": "user_1", "actor_kind": "person", "action": "ticket.updated", "data": map[string]any{"fields": map[string]any{"priority": map[string]any{"from": "medium", "to": "urgent"}, "title": true}}},
+				{"id": "e5", "at": "2026-10-21T12:00:00Z", "actor": "user_2", "actor_kind": "person", "action": "comment.added", "data": map[string]any{"comment_id": "c1"}},
+				{"id": "e6", "at": "2026-10-22T09:00:00Z", "actor": nil, "actor_kind": "system", "action": "ticket.stage", "data": map[string]any{"stage": "resolved", "outcome": "entered", "resolution": "wont_do"}},
+			}
+		case p == "/api/tickets/t2/activity": // a backend from before activity: the TUI falls back to /history
+			http.Error(w, "404 page not found", http.StatusNotFound)
+			return
 		case p == "/api/tickets/t1/history" && historyFails:
 			http.Error(w, "history is down", http.StatusBadGateway)
 			return
@@ -1458,6 +1473,8 @@ func TestTicketHistory(t *testing.T) {
 	expect(t, a, "h history")
 	press(a, "h")
 	expect(t, a, "History of TL-1", "Resolved: won’t do", "by TrackLin.es", "Moved to Web · To do", "by Sam Doe", "Into the backlog", "by Alex Roe")
+	// TL-681: every change, not just stages; text says only that it changed
+	expect(t, a, "Assigned to Alex Roe", "Changed priority medium → urgent, edited the title", "Commented")
 	v := a.View()
 	if !(strings.Index(v, "Resolved") < strings.Index(v, "Moved to") && strings.Index(v, "Moved to") < strings.Index(v, "Into the backlog")) {
 		t.Fatalf("not newest first:\n%s", v)
@@ -1472,7 +1489,7 @@ func TestTicketHistory(t *testing.T) {
 	press(a, "r")
 	expect(t, a, "Moved to Web · To do")
 
-	press(a, "esc", "esc", "j", "enter", "h") // TL-2: nothing has happened to it yet
+	press(a, "esc", "esc", "j", "enter", "h") // TL-2: nothing has happened to it yet (and its backend has no /activity: /history instead)
 	expect(t, a, "History of TL-2", "No history yet.")
 }
 
@@ -1580,5 +1597,52 @@ func TestBackgroundRefresh(t *testing.T) {
 	tick()
 	if count(*calls, "GET /api/tickets/t1") != tickets {
 		t.Fatal("refreshed while writing a comment")
+	}
+}
+
+// TL-681: a line for every action the backend records, in the web History panel's terms; one this
+// version doesn't know is "Made a change"
+func TestActivityLines(t *testing.T) {
+	a, _ := start(t)
+	ev := func(action string, data map[string]any) api.ActivityEntry {
+		return api.ActivityEntry{Action: action, Data: data}
+	}
+	actions := map[string]map[string]any{
+		"ticket.stage":              {"stage": "column", "outcome": "skipped", "column_name": "Doing"},
+		"ticket.assigned":           {"from": "user_1", "to": "user_2"},
+		"ticket.updated":            {"fields": map[string]any{"estimate": map[string]any{"from": nil, "to": "3"}, "timebox_days": map[string]any{}, "timebox_hours": map[string]any{}}},
+		"ticket.labels_changed":     {"removed": []any{"api"}},
+		"ticket.blocked_by_changed": {"added": []any{"x", "y"}},
+		"ticket.parent_changed":     {"to": "e"},
+		"ticket.sprint_changed":     {"from": "s1", "to": "s2"},
+		"ticket.planned_changed":    {"to": "s3"},
+		"ticket.reopened":           {}, "ticket.duplicate_of": {"of": "x"}, "ticket.deleted": {}, "ticket.restored": {},
+		"ticket.review_requested": {}, "ticket.review_ended": {},
+		"comment.added": {"reply_to": "c0"}, "comment.edited": {}, "comment.deleted": {},
+		"attachment.added": {"name": "spec.pdf"}, "attachment.removed": {"name": "old.png"}, "attachment.kept": {"name": "log.txt"},
+		"pr.linked": {"repo": "tl/web", "number": 42.0}, "pr.state_changed": {"repo": "tl/web", "number": 42.0, "to": "merged"},
+		"pr.unlinked": {"repo": "tl/web", "number": 42.0},
+	}
+	if len(actions) != 23 {
+		t.Fatalf("%d actions", len(actions))
+	}
+	for action, data := range actions {
+		if got := activityLine(a, ev(action, data)); got == "" || strings.Contains(got, "Made a change") {
+			t.Errorf("%s: %q", action, got)
+		}
+	}
+	for action, want := range map[string]string{
+		"ticket.assigned":       "Reassigned from Sam Doe to Alex Roe",
+		"ticket.updated":        "Changed estimate – → 3, the timebox",
+		"ticket.labels_changed": "Labels removed: api",
+		"pr.state_changed":      "Pull request tl/web#42 merged",
+		"comment.added":         "Replied to a comment",
+	} {
+		if got := activityLine(a, ev(action, actions[action])); !strings.Contains(got, want) {
+			t.Errorf("%s: %q, want %q", action, got, want)
+		}
+	}
+	if got := activityLine(a, ev("something.new", nil)); got != "Made a change" {
+		t.Errorf("unknown: %q", got)
 	}
 }
