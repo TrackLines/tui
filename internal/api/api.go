@@ -267,6 +267,43 @@ func (c *Client) History(ctx context.Context, ticket string) ([]HistoryEntry, er
 	return out, err
 }
 
+// ActivityEntry is one thing that happened to a ticket (TL-681): a stage, an assignment, an edit (which
+// fields, never the text), a label, a link, a comment, a file, a pull request… Action names it and Data
+// holds the details.
+type ActivityEntry struct {
+	ID        string         `json:"id"`
+	At        string         `json:"at"` // UTC, RFC 3339
+	Actor     *string        `json:"actor"`
+	ActorKind string         `json:"actor_kind"` // person, agent, service or system
+	Action    string         `json:"action"`
+	Data      map[string]any `json:"data"`
+}
+
+// Activity is everything that happened to a ticket, oldest first. A backend from before activity (no
+// route: 404) gives its stages instead, in the same shape.
+func (c *Client) Activity(ctx context.Context, ticket string) ([]ActivityEntry, error) {
+	var out []ActivityEntry
+	err := c.do(ctx, http.MethodGet, "/tickets/"+url.PathEscape(ticket)+"/activity", nil, &out)
+	if e, isAPI := err.(*APIError); !isAPI || e.Status != http.StatusNotFound {
+		return out, err
+	}
+	stages, err := c.History(ctx, ticket)
+	if err != nil {
+		return nil, err
+	}
+	out = make([]ActivityEntry, len(stages))
+	for i, s := range stages {
+		data := map[string]any{"stage": s.Stage, "outcome": s.Outcome, "done": s.Done}
+		for k, v := range map[string]*string{"board_name": s.BoardName, "column_name": s.ColumnName, "resolution": s.Resolution} {
+			if v != nil {
+				data[k] = *v
+			}
+		}
+		out[i] = ActivityEntry{At: s.At, Actor: s.Actor, Action: "ticket.stage", Data: data}
+	}
+	return out, nil
+}
+
 func (c *Client) Comments(ctx context.Context, ticket string) ([]Comment, error) {
 	var out []Comment
 	err := c.do(ctx, http.MethodGet, "/tickets/"+url.PathEscape(ticket)+"/comments", nil, &out)

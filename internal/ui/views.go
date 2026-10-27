@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -2037,7 +2038,7 @@ func (v *draftsView) typing() bool { return false }
 // did it and when.
 type historyView struct {
 	ticket  Ticket
-	entries []api.HistoryEntry // oldest first, as the API sends them
+	entries []api.ActivityEntry // oldest first, as the API sends them (TL-681)
 	loaded  bool
 	cursor  int
 }
@@ -2046,13 +2047,13 @@ func (v *historyView) tag() string { return "history:" + v.ticket.ID }
 
 func (v *historyView) load(a *app) tea.Cmd {
 	id := v.ticket.ID
-	return fetch(v.tag(), func(ctx context.Context) (any, error) { return a.api.History(ctx, id) })
+	return fetch(v.tag(), func(ctx context.Context) (any, error) { return a.api.Activity(ctx, id) })
 }
 
 func (v *historyView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	switch msg := msg.(type) {
 	case loadedMsg:
-		if d, ok := msg.data.([]api.HistoryEntry); ok && msg.tag == v.tag() {
+		if d, ok := msg.data.([]api.ActivityEntry); ok && msg.tag == v.tag() {
 			v.entries, v.loaded = d, true
 		}
 	case tea.KeyMsg:
@@ -2084,7 +2085,7 @@ func (v *historyView) render(a *app) string {
 		if e.Actor != nil {
 			who = a.name(*e.Actor)
 		}
-		rows[i] = muted.Render(when(e.At)) + "  " + historyStep(e) + muted.Render("  "+F("by %s", who))
+		rows[i] = muted.Render(when(e.At)) + "  " + activityLine(a, e) + muted.Render("  "+F("by %s", who))
 	}
 	return head + lines(rows, v.cursor, a.rows()-2)
 }
@@ -2092,7 +2093,168 @@ func (v *historyView) render(a *app) string {
 // Author is who the system's own changes are by.
 const Author = "TrackLin.es"
 
-// historyStep says what one history entry was: "Moved to Web · In progress", "Skipped the backlog"…
+// activityLine says what one thing that happened was, as the web History panel does (TL-681): "Moved
+// to Web · In progress", "Assigned to Claude", "Changed the priority: Medium → Urgent, edited the title"…
+// Text changes say only that they happened. An action this version doesn't know is "Made a change".
+func activityLine(a *app, e api.ActivityEntry) string {
+	d := e.Data
+	str := func(k string) string {
+		if v, ok := d[k]; ok && v != nil {
+			if f, isNum := v.(float64); isNum {
+				return strconv.FormatFloat(f, 'f', -1, 64)
+			}
+			return fmt.Sprint(v)
+		}
+		return ""
+	}
+	list := func(k string) string {
+		items, _ := d[k].([]any)
+		out := make([]string, len(items))
+		for i, it := range items {
+			out[i] = fmt.Sprint(it)
+		}
+		return strings.Join(out, ", ")
+	}
+	count := func(k string) int { items, _ := d[k].([]any); return len(items) }
+	name := func(k string) string { return a.name(str(k)) }
+	pr := str("repo") + "#" + str("number")
+	switch e.Action {
+	case "ticket.stage":
+		h := api.HistoryEntry{Stage: str("stage"), Outcome: str("outcome")}
+		if v := str("board_name"); v != "" {
+			h.BoardName = &v
+		}
+		if v := str("column_name"); v != "" {
+			h.ColumnName = &v
+		}
+		if v := str("resolution"); v != "" {
+			h.Resolution = &v
+		}
+		return historyStep(h)
+	case "ticket.assigned":
+		switch from, to := str("from"), str("to"); {
+		case to == "":
+			return F("Unassigned %s", name("from"))
+		case from == "":
+			return F("Assigned to %s", name("to"))
+		default:
+			return F("Reassigned from %s to %s", name("from"), name("to"))
+		}
+	case "ticket.updated":
+		fields, _ := d["fields"].(map[string]any)
+		keys := make([]string, 0, len(fields))
+		for k := range fields {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		var parts []string
+		seen := map[string]bool{}
+		for _, k := range keys {
+			change, _ := fields[k].(map[string]any)
+			from, to := fmt.Sprint(change["from"]), fmt.Sprint(change["to"])
+			if change["from"] == nil {
+				from = "–"
+			}
+			if change["to"] == nil {
+				to = "–"
+			}
+			var part string
+			switch k {
+			case "title":
+				part = T("edited the title")
+			case "description":
+				part = T("edited the description")
+			case "type":
+				part = F("type %s → %s", T(from), T(to))
+			case "priority":
+				part = F("priority %s → %s", T(from), T(to))
+			case "estimate":
+				part = F("estimate %s → %s", from, to)
+			case "due_date":
+				part = F("due date %s → %s", from, to)
+			case "timebox_days", "timebox_hours":
+				part = T("the timebox")
+			default:
+				part = k
+			}
+			if !seen[part] {
+				seen[part] = true
+				parts = append(parts, part)
+			}
+		}
+		return F("Changed %s", strings.Join(parts, ", "))
+	case "ticket.labels_changed":
+		if v := list("added"); v != "" {
+			return F("Labels added: %s", v)
+		}
+		return F("Labels removed: %s", list("removed"))
+	case "ticket.blocked_by_changed":
+		if n := count("added"); n > 0 {
+			return F("Blockers added: %d", n)
+		}
+		return F("Blockers removed: %d", count("removed"))
+	case "ticket.parent_changed":
+		if str("to") == "" {
+			return T("Detached from its parent")
+		}
+		return T("Made part of another ticket")
+	case "ticket.sprint_changed":
+		switch {
+		case str("to") == "":
+			return T("Taken out of its sprint")
+		case str("from") == "":
+			return T("Added to a sprint")
+		}
+		return T("Moved to another sprint")
+	case "ticket.planned_changed":
+		if str("to") == "" {
+			return T("Taken out of a planned sprint")
+		}
+		return T("Planned for a later sprint")
+	case "ticket.reopened":
+		return T("Reopened")
+	case "ticket.duplicate_of":
+		return T("Marked a duplicate")
+	case "ticket.deleted":
+		return T("Deleted")
+	case "ticket.restored":
+		return T("Restored")
+	case "ticket.review_requested":
+		return T("Review asked for")
+	case "ticket.review_ended":
+		return T("Review finished")
+	case "comment.added":
+		if str("reply_to") != "" {
+			return T("Replied to a comment")
+		}
+		return T("Commented")
+	case "comment.edited":
+		return T("Edited a comment")
+	case "comment.deleted":
+		return T("Deleted a comment")
+	case "attachment.added":
+		return F("Attached %s", str("name"))
+	case "attachment.removed":
+		return F("Removed %s", str("name"))
+	case "attachment.kept":
+		return F("Kept %s another year", str("name"))
+	case "pr.linked":
+		return F("Linked pull request %s", pr)
+	case "pr.unlinked":
+		return F("Unlinked pull request %s", pr)
+	case "pr.state_changed":
+		switch str("to") {
+		case "merged":
+			return F("Pull request %s merged", pr)
+		case "closed":
+			return F("Pull request %s closed", pr)
+		}
+		return F("Pull request %s reopened", pr)
+	}
+	return T("Made a change")
+}
+
+// historyStep says what one stage was: "Moved to Web · In progress", "Skipped the backlog"…
 func historyStep(e api.HistoryEntry) string {
 	switch e.Stage {
 	case "backlog":

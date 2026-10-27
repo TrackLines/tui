@@ -47,6 +47,10 @@ func TestLanguageChoice(t *testing.T) {
 var sources = []string{"../ui/*.go", "../../cmd/tracklines/*.go", "../update/*.go"}
 
 // prose looks like words for people: two words, or a capitalised word.
+// actionName is the backend's name for something that happened to a ticket (ticket.assigned, pr.linked…):
+// compared, never shown (TL-681).
+var actionName = regexp.MustCompile(`^[a-z]+\.[a-z_]+$`)
+
 var prose = regexp.MustCompile(`[A-Za-z]{2,}[ ,.:;’'/–·-]+[A-Za-z]{2,}|^[A-Z][a-z]{2,}`)
 
 // notText are literals that look like prose but aren't shown, or are names that stay as they are.
@@ -115,7 +119,7 @@ func TestEveryTextIsTranslated(t *testing.T) {
 					return true
 				}
 				s, _ := strconv.Unquote(lit.Value)
-				if prose.MatchString(s) && !notText[s] && !strings.HasPrefix(s, "https://") {
+				if prose.MatchString(s) && !notText[s] && !strings.HasPrefix(s, "https://") && !actionName.MatchString(s) {
 					t.Errorf("%s: shown untranslated: %q", fset.Position(lit.Pos()), s)
 				}
 				return true
