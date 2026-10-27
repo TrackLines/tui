@@ -623,20 +623,20 @@ func TestTimeboxBusinessHours(t *testing.T) {
 	// 2026-01-05 is a Monday, -09 a Friday, -12 the next Monday (local, tz-independent).
 	at := func(day, hour int) time.Time { return time.Date(2026, 1, day, hour, 0, 0, 0, time.Local) }
 
-	if m := businessMinutesBetween(at(5, 10), at(5, 15)); m != 300 {
+	if m := businessMinutesBetween(at(5, 10), at(5, 15), api.DefaultWeek()); m != 300 {
 		t.Fatalf("Mon 10–15 = %d, want 300", m)
 	}
-	if m := businessMinutesBetween(at(5, 8), at(5, 18)); m != 480 {
+	if m := businessMinutesBetween(at(5, 8), at(5, 18), api.DefaultWeek()); m != 480 {
 		t.Fatalf("clamp to 09–17 = %d, want 480", m)
 	}
-	if m := businessMinutesBetween(at(9, 16), at(12, 10)); m != 120 {
+	if m := businessMinutesBetween(at(9, 16), at(12, 10), api.DefaultWeek()); m != 120 {
 		t.Fatalf("Fri 16→Mon 10 (weekend skipped) = %d, want 120", m)
 	}
-	if m := businessMinutesBetween(at(10, 9), at(11, 17)); m != 0 {
+	if m := businessMinutesBetween(at(10, 9), at(11, 17), api.DefaultWeek()); m != 0 {
 		t.Fatalf("all weekend = %d, want 0", m)
 	}
 	for in, want := range map[int]string{420: "7h", 90: "1h 30m", 480: "1d", 540: "1d 1h", 45: "45m"} {
-		if got := formatDuration(in); got != want {
+		if got := formatDuration(in, api.DefaultWeek()); got != want {
 			t.Fatalf("formatDuration(%d) = %q, want %q", in, got, want)
 		}
 	}
@@ -646,17 +646,17 @@ func TestTimeboxBusinessHours(t *testing.T) {
 	spike := func(started *string, done *string) *Ticket {
 		return &Ticket{Type: "spike", TimeboxDays: ip(1), TimeboxHours: ip(0), StartedAt: started, DoneAt: done, Done: done != nil}
 	}
-	if got := timeboxMeta(spike(nil, nil), at(5, 10)); got != "timebox 1d" {
+	if got := timeboxMeta(spike(nil, nil), at(5, 10), api.DefaultWeek()); got != "timebox 1d" {
 		t.Fatalf("not started = %q", got)
 	}
-	if got := timeboxMeta(spike(sp(at(5, 9)), nil), at(5, 10)); got != "timebox 1d · 7h left" {
+	if got := timeboxMeta(spike(sp(at(5, 9)), nil), at(5, 10), api.DefaultWeek()); got != "timebox 1d · 7h left" {
 		t.Fatalf("in progress within = %q", got)
 	}
 	over := &Ticket{Type: "spike", TimeboxDays: ip(0), TimeboxHours: ip(1), StartedAt: sp(at(5, 9))}
-	if got := timeboxMeta(over, at(5, 11)); got != "timebox 1h · over by 1h" {
+	if got := timeboxMeta(over, at(5, 11), api.DefaultWeek()); got != "timebox 1h · over by 1h" {
 		t.Fatalf("over = %q", got)
 	}
-	if got := timeboxMeta(spike(sp(at(5, 9)), sp(at(5, 10))), at(5, 12)); got != "timebox 1d · within, 7h spare" {
+	if got := timeboxMeta(spike(sp(at(5, 9)), sp(at(5, 10))), at(5, 12), api.DefaultWeek()); got != "timebox 1d · within, 7h spare" {
 		t.Fatalf("done within = %q", got)
 	}
 }
@@ -1644,5 +1644,37 @@ func TestActivityLines(t *testing.T) {
 	}
 	if got := activityLine(a, ev("something.new", nil)); got != "Made a change" {
 		t.Errorf("unknown: %q", got)
+	}
+}
+
+// TL-704: a ticket's timebox counts its project's working week; the week is its own, the org's, or
+// the default
+func TestTimeboxWorkingWeek(t *testing.T) {
+	// 2026-01-09 is a Friday, -11 a Sunday (local)
+	at := func(day, hour int) time.Time { return time.Date(2026, 1, day, hour, 0, 0, 0, time.Local) }
+	gulf := api.WorkWeek{Days: []int{0, 1, 2, 3, 4}, WeekStart: 0, From: 8 * 60, To: 18 * 60}
+	if m := businessMinutesBetween(at(9, 9), at(11, 10), gulf); m != 120 { // Friday and Saturday off; Sunday 08–10
+		t.Fatalf("Sun–Thu week: %d", m)
+	}
+	if got := formatDuration(12*60, gulf); got != "1d 2h" { // a 10h working day
+		t.Fatalf("10h day: %q", got)
+	}
+	sp := func(v string) *string { return &v }
+	one := 1
+	spike := &Ticket{TimeboxDays: &one, StartedAt: sp(at(11, 8).UTC().Format(time.RFC3339))}
+	if got := timeboxMeta(spike, at(11, 13), gulf); got != "timebox 1d · 5h left" {
+		t.Fatalf("Sunday on a Sun–Thu week: %q", got)
+	}
+
+	a := &app{}
+	if w := a.week("p1"); fmt.Sprint(w.Days) != "[1 2 3 4 5]" {
+		t.Fatalf("not loaded yet: %+v", w)
+	}
+	a.weeks = &api.WorkWeeks{Org: gulf, Projects: map[string]api.WorkWeek{"p1": api.DefaultWeek()}}
+	if w := a.week("p1"); w.From != 9*60 {
+		t.Fatalf("project's own: %+v", w)
+	}
+	if w := a.week("p2"); w.From != 8*60 {
+		t.Fatalf("the org's: %+v", w)
 	}
 }

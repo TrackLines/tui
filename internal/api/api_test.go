@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -52,5 +53,34 @@ func TestTicketTreeDecodes(t *testing.T) {
 	if got.Parent == nil || got.Parent.ID != "p" || len(got.Children) != 1 || *got.Children[0].Key != "TL-2" || !got.Children[0].Done ||
 		got.Children[0].BoardName != nil || got.Epic == nil || got.Epic.Points != 5.5 || got.Epic.Unestimated != 1 {
 		t.Fatalf("decoded %+v", got)
+	}
+}
+
+// TL-704: the working weeks as the server has them; an older backend without the route (404) is the
+// default week, which is what it counted with
+func TestWorkingWeek(t *testing.T) {
+	route := `{"org":{"days":[0,1,2,3,4],"week_start":0,"start_minute":480,"end_minute":1080},"projects":{"p1":{"days":[1,2,3,4,5,6],"week_start":1,"start_minute":540,"end_minute":1020}}}`
+	for _, c := range []struct {
+		status int
+		org    []int
+		own    bool
+	}{{200, []int{0, 1, 2, 3, 4}, true}, {404, []int{1, 2, 3, 4, 5}, false}} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/working-week" || c.status != 200 {
+				http.Error(w, "404 page not found", http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(route))
+		}))
+		cl := &Client{Base: srv.URL, Key: "tl_p_x", HTTP: srv.Client()}
+		got, err := cl.WorkingWeek(context.Background())
+		srv.Close()
+		if err != nil || fmt.Sprint(got.Org.Days) != fmt.Sprint(c.org) {
+			t.Fatalf("%d: %+v %v", c.status, got, err)
+		}
+		if _, own := got.Projects["p1"]; own != c.own {
+			t.Fatalf("%d: project's own week %v", c.status, own)
+		}
 	}
 }
