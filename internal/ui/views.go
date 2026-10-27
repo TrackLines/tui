@@ -1002,7 +1002,7 @@ func (v *ticketView) detail(a *app) string {
 	if t.Estimate != nil {
 		meta = append(meta, F("estimate %s", *t.Estimate))
 	}
-	if tb := timeboxMeta(t, time.Now()); tb != "" {
+	if tb := timeboxMeta(t, time.Now(), a.week(t.ProjectID)); tb != "" {
 		meta = append(meta, tb)
 	}
 	if due := dueBadge(t, time.Now()); due != "" {

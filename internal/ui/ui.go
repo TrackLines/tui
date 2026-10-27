@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/tracklines/tui/internal/api"
 	"github.com/tracklines/tui/internal/config"
 	"github.com/tracklines/tui/internal/drafts"
 	"github.com/tracklines/tui/internal/help"
@@ -50,6 +52,7 @@ type app struct {
 	loading       bool
 	away          bool // the terminal isn't focused: no background refreshes (TL-649)
 	people        map[string]string
+	weeks         *api.WorkWeeks // nil until loaded: the default week
 	me            string
 	latest        *update.Release // a newer release than this one, when there is
 	updated       string          // the release just installed: restart to use it
@@ -82,6 +85,7 @@ type (
 		people map[string]string
 		me     string
 	}
+	weeksMsg struct{ weeks api.WorkWeeks } // the working weeks, for timeboxes (TL-704)
 )
 
 func newApp(api *Client) *app {
@@ -167,6 +171,12 @@ func (a *app) Init() tea.Cmd {
 	return tea.Batch(a.top().load(a), a.checkUpdate(), refreshLater(), a.fetchHelp(), func() tea.Msg {
 		p, me, _ := a.api.People(context.Background()) // ponytail: without names, comments show ids; not worth an error
 		return peopleMsg{p, me}
+	}, func() tea.Msg {
+		w, err := a.api.WorkingWeek(context.Background())
+		if err != nil {
+			return nil // the default week, until next time
+		}
+		return weeksMsg{w}
 	})
 }
 
@@ -205,6 +215,9 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.width, a.height = msg.Width, msg.Height
 	case peopleMsg:
 		a.people, a.me = msg.people, msg.me
+		return a, nil
+	case weeksMsg:
+		a.weeks = &msg.weeks
 		return a, nil
 	case refreshTick:
 		if a.away {
@@ -409,13 +422,25 @@ func timeboxLabel(days, hours *int) string {
 	return strings.Join(parts, " ")
 }
 
-// Business-hours timebox tracking (TL-506): same spec as the web helper (lib/timebox.ts). Mon–Fri
-// 09:00–17:00 in the local timezone, 8h per business day. ponytail: hard-coded; TL-510 makes it a setting.
-const (
-	workStartHour   = 9
-	workEndHour     = 17
-	workHoursPerDay = workEndHour - workStartHour // 8
-)
+// Business-hours timebox tracking (TL-506): same spec as the web helper (lib/ticket/timebox.ts), in the
+// project's working week (TL-510, TL-704; Mon–Fri 09:00–17:00 unless set) in the local timezone. A
+// timebox day is one working day.
+
+// week is a project's working week: its own, else the org's, else the default.
+func (a *app) week(project string) api.WorkWeek {
+	if a.weeks == nil {
+		return api.DefaultWeek()
+	}
+	if w, ok := a.weeks.Projects[project]; ok {
+		return w
+	}
+	if len(a.weeks.Org.Days) == 0 {
+		return api.DefaultWeek()
+	}
+	return a.weeks.Org
+}
+
+func dayHours(w api.WorkWeek) int { return (w.To - w.From) / 60 }
 
 func intp(p *int) int {
 	if p == nil {
@@ -424,17 +449,17 @@ func intp(p *int) int {
 	return *p
 }
 
-// businessMinutesBetween: minutes of [start, end] inside Mon–Fri 09:00–17:00 (in start's location).
-func businessMinutesBetween(start, end time.Time) int {
+// businessMinutesBetween: minutes of [start, end] inside the week's working hours (in start's location).
+func businessMinutesBetween(start, end time.Time, w api.WorkWeek) int {
 	if !end.After(start) {
 		return 0
 	}
 	total := 0.0
 	day := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
 	for i := 0; i < 4000 && !day.After(end); i++ {
-		if wd := day.Weekday(); wd >= time.Monday && wd <= time.Friday {
-			ws := time.Date(day.Year(), day.Month(), day.Day(), workStartHour, 0, 0, 0, day.Location())
-			we := time.Date(day.Year(), day.Month(), day.Day(), workEndHour, 0, 0, 0, day.Location())
+		if slices.Contains(w.Days, int(day.Weekday())) {
+			ws := day.Add(time.Duration(w.From) * time.Minute)
+			we := day.Add(time.Duration(w.To) * time.Minute)
 			os, oe := ws, we
 			if start.After(os) {
 				os = start
@@ -453,7 +478,7 @@ func businessMinutesBetween(start, end time.Time) int {
 
 // timeboxMeta renders a spike's timebox for the detail meta line: "timebox 1d 4h", plus the live
 // business-hours state once In Progress ("· 3h left" / "· over by 1h" / "· within, 2h spare").
-func timeboxMeta(t *Ticket, now time.Time) string {
+func timeboxMeta(t *Ticket, now time.Time, w api.WorkWeek) string {
 	label := timeboxLabel(t.TimeboxDays, t.TimeboxHours)
 	if label == "" {
 		return ""
@@ -472,26 +497,27 @@ func timeboxMeta(t *Ticket, now time.Time) string {
 			end = d
 		}
 	}
-	budget := (intp(t.TimeboxDays)*workHoursPerDay + intp(t.TimeboxHours)) * 60
-	elapsed := businessMinutesBetween(start.Local(), end.Local())
+	budget := (intp(t.TimeboxDays)*dayHours(w) + intp(t.TimeboxHours)) * 60
+	elapsed := businessMinutesBetween(start.Local(), end.Local(), w)
 	remaining := budget - elapsed
 	switch {
 	case remaining < 0:
-		return out + " · " + F("over by %s", formatDuration(-remaining))
+		return out + " · " + F("over by %s", formatDuration(-remaining, w))
 	case t.DoneAt != nil:
-		return out + " · " + F("within, %s spare", formatDuration(remaining))
+		return out + " · " + F("within, %s spare", formatDuration(remaining, w))
 	default:
-		return out + " · " + F("%s left", formatDuration(remaining))
+		return out + " · " + F("%s left", formatDuration(remaining, w))
 	}
 }
 
-// formatDuration: business minutes as "2d 1h" / "3h" / "45m" (a day = 8 business hours).
-func formatDuration(mins int) string {
+// formatDuration: business minutes as "2d 1h" / "3h" / "45m" (a day = one working day of the week).
+func formatDuration(mins int, w api.WorkWeek) string {
 	if mins < 0 {
 		mins = 0
 	}
-	d := mins / 60 / workHoursPerDay
-	h := (mins / 60) % workHoursPerDay
+	per := max(1, dayHours(w))
+	d := mins / 60 / per
+	h := (mins / 60) % per
 	m := mins % 60
 	var parts []string
 	if d > 0 {

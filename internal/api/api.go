@@ -599,3 +599,34 @@ func (c *Client) Help(ctx context.Context, locale, etag string) ([]byte, string,
 	b, err := io.ReadAll(io.LimitReader(res.Body, 4<<20))
 	return b, res.Header.Get("ETag"), err
 }
+
+// WorkWeek is a working week (TL-510): days 0 (Sunday) to 6 (Saturday), the first day of the week, and the
+// hours as minutes from midnight, in each person's own timezone.
+type WorkWeek struct {
+	Days      []int `json:"days"`
+	WeekStart int   `json:"week_start"`
+	From      int   `json:"start_minute"`
+	To        int   `json:"end_minute"`
+}
+
+// WorkWeeks is the organization's week and its projects' own.
+type WorkWeeks struct {
+	Org      WorkWeek            `json:"org"`
+	Projects map[string]WorkWeek `json:"projects"`
+}
+
+// DefaultWeek is the week until one is set: Mon–Fri, Monday first, 09:00–17:00.
+func DefaultWeek() WorkWeek {
+	return WorkWeek{Days: []int{1, 2, 3, 4, 5}, WeekStart: 1, From: 9 * 60, To: 17 * 60}
+}
+
+// WorkingWeek is the org's working week and its projects' own. A backend from before working weeks (404)
+// has the default week, which is what it counted with.
+func (c *Client) WorkingWeek(ctx context.Context) (WorkWeeks, error) {
+	out := WorkWeeks{Org: DefaultWeek()}
+	err := c.do(ctx, http.MethodGet, "/working-week", nil, &out)
+	if e, isAPI := err.(*APIError); isAPI && e.Status == http.StatusNotFound {
+		return WorkWeeks{Org: DefaultWeek()}, nil
+	}
+	return out, err
+}
