@@ -146,10 +146,24 @@ type person struct {
 	Name  string `json:"name"`
 }
 
-// APIError is the API refusing something, with its reason ("this api key is read-only").
+// APIError is the API refusing something, with its reason ("this api key is read-only"), its
+// error code when it has one ("read_only_key") and the request id, for support (TL-597).
 type APIError struct {
-	Status int
-	Msg    string
+	Status    int
+	Msg       string
+	Code      string
+	RequestID string
+}
+
+// apiError reads a refusal: the API's JSON {"error", "code"} when it sent one, else its text.
+func apiError(res *http.Response) *APIError {
+	raw, _ := io.ReadAll(io.LimitReader(res.Body, 300))
+	e := &APIError{Status: res.StatusCode, Msg: strings.TrimSpace(string(raw)), RequestID: res.Header.Get("X-Request-Id")}
+	var body struct{ Error, Code string }
+	if json.Unmarshal(raw, &body) == nil && body.Error != "" {
+		e.Msg, e.Code = body.Error, body.Code
+	}
+	return e
 }
 
 func (e *APIError) Error() string {
@@ -190,6 +204,7 @@ func (c *Client) call(ctx context.Context, method, path string, in, out any) err
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.Key)
+	req.Header.Set("Accept", "application/json") // refusals come with their code
 	if in != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -199,8 +214,7 @@ func (c *Client) call(ctx context.Context, method, path string, in, out any) err
 	}
 	defer res.Body.Close()
 	if res.StatusCode >= 300 {
-		msg, _ := io.ReadAll(io.LimitReader(res.Body, 300))
-		return &APIError{Status: res.StatusCode, Msg: strings.TrimSpace(string(msg))}
+		return apiError(res)
 	}
 	if out == nil {
 		return nil
@@ -345,6 +359,7 @@ func (c *Client) Upload(ctx context.Context, ticket, name, contentType string, b
 		}
 		req.ContentLength = size
 		req.Header.Set("Authorization", "Bearer "+c.Key)
+		req.Header.Set("Accept", "application/json")
 		req.Header.Set("Content-Type", contentType)
 		res, err := c.HTTP.Do(req)
 		if err != nil {
@@ -352,8 +367,7 @@ func (c *Client) Upload(ctx context.Context, ticket, name, contentType string, b
 		}
 		defer res.Body.Close()
 		if res.StatusCode >= 300 {
-			msg, _ := io.ReadAll(io.LimitReader(res.Body, 300))
-			return &APIError{Status: res.StatusCode, Msg: strings.TrimSpace(string(msg))}
+			return apiError(res)
 		}
 		return json.NewDecoder(res.Body).Decode(&out)
 	}()

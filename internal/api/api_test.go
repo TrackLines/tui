@@ -84,3 +84,23 @@ func TestWorkingWeek(t *testing.T) {
 		}
 	}
 }
+
+// TL-597: a refusal keeps the API's reason, code and request id; it asks for JSON to get them.
+func TestRefusalCarriesItsCode(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Accept") != "application/json" {
+			http.Error(w, "plain", http.StatusForbidden)
+			return
+		}
+		w.Header().Set("X-Request-Id", "req-1")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":"this api key is read-only","code":"read_only_key"}`))
+	}))
+	defer srv.Close()
+	err := (&Client{Base: srv.URL, Key: "tl_p_x", HTTP: srv.Client()}).Assign(context.Background(), "t1", nil)
+	e, isAPI := err.(*APIError)
+	if !isAPI || e.Status != 403 || e.Msg != "this api key is read-only" || e.Code != "read_only_key" || e.RequestID != "req-1" {
+		t.Fatalf("got %#v", err)
+	}
+}

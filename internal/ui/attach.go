@@ -78,7 +78,7 @@ func (v *attachView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		case errors.Is(msg.err, context.Canceled):
 			a.status = muted.Render(T("Upload cancelled."))
 		case msg.err != nil:
-			a.status = warn.Render(F("Couldn’t attach %s: %s", msg.name, msg.err.Error()))
+			a.status = failure(F("Couldn’t attach %s", msg.name), msg.err, true)
 		default:
 			return v, msgOf(popMsg{ok.Render(F("Attached %s.", msg.name))})
 		}
