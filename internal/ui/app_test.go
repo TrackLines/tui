@@ -784,7 +784,7 @@ func TestSearchEmptyAndFailing(t *testing.T) {
 	press(a, "/", "nothing", "enter")
 	expect(t, a, "No tickets match “nothing”.")
 	press(a, "/", "ctrl+u", "flaky", "enter")
-	expect(t, a, "The search didn’t work.", "r to try again", "search is down")
+	expect(t, a, "The search didn’t work.", "r to try again", "had a problem (502)")
 	n := len(*calls)
 	press(a, "r")
 	if !strings.Contains(strings.Join((*calls)[n:], "\n"), "q=flaky") {
@@ -1353,8 +1353,8 @@ func TestDraftsSurviveAnOutage(t *testing.T) {
 	a, calls := start(t)
 	apiDown = true
 	press(a, "enter", "c", "hello", "esc", "enter")
-	expect(t, a, "service unavailable", "kept as a draft", "Comment on TL-1") // still writing, text kept
-	press(a, "esc", "q", "q")                                                 // leave it (q twice discards the box, not the draft)
+	expect(t, a, "had a problem (503)", "not saved: try again", "kept as a draft", "Comment on TL-1") // still writing, text kept
+	press(a, "esc", "q", "q")                                                                         // leave it (q twice discards the box, not the draft)
 	expect(t, a, "Unsent comment", "c to finish it")
 
 	// restart: the draft is still there
@@ -1363,9 +1363,9 @@ func TestDraftsSurviveAnOutage(t *testing.T) {
 	pump(b, b.Init(), 0)
 	expect(t, b, "1 unsent draft", "D to see them")
 	press(b, "D")
-	expect(t, b, "Unsent drafts", "drafts.json", "TL-1", "hello", "not sent: service unavailable")
+	expect(t, b, "Unsent drafts", "drafts.json", "TL-1", "hello", "not sent: TrackLin.es had a problem (503)")
 	press(b, "r") // still down: still kept, nothing lost
-	expect(t, b, "TL-1", "not sent: service unavailable")
+	expect(t, b, "TL-1", "not sent: TrackLin.es had a problem (503)")
 	apiDown = false
 	n := len(*calls)
 	press(b, "r")
@@ -1484,7 +1484,7 @@ func TestTicketHistory(t *testing.T) {
 
 	historyFails = true
 	press(a, "h")
-	expect(t, a, "Couldn’t load the history.", "r to try again", "history is down")
+	expect(t, a, "Couldn’t load the history.", "r to try again", "had a problem (502)")
 	historyFails = false
 	press(a, "r")
 	expect(t, a, "Moved to Web · To do")
@@ -1677,4 +1677,18 @@ func TestTimeboxWorkingWeek(t *testing.T) {
 	if w := a.week("p2"); w.From != 8*60 {
 		t.Fatalf("the org's: %+v", w)
 	}
+}
+
+// TL-597: a ticket that couldn't be created says why and that it wasn't saved, and the form stays
+// open with what was typed, to save again.
+func TestFailedCreateKeepsTheForm(t *testing.T) {
+	outage(t)
+	a, _ := start(t)
+	press(a, "2", "enter", "enter", "n", "Add SSO", "tab", "right", "tab", "right", "right", "tab", "right")
+	apiDown = true
+	press(a, "ctrl+s")
+	expect(t, a, "Couldn’t create the ticket: TrackLin.es had a problem (503)", "not saved: try again", "New ticket", "Add SSO")
+	apiDown = false
+	press(a, "ctrl+s")
+	expect(t, a, "Created TL-9.")
 }

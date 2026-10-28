@@ -75,6 +75,7 @@ type (
 	statusMsg struct {
 		text string
 		err  error
+		what string // a change that failed ("Couldn’t move TL-9"); empty: a read
 	}
 	keptMsg struct{ d drafts.Draft } // a send failed; keep its draft
 	sentMsg struct {                 // a draft's change reached the server
@@ -202,9 +203,9 @@ func fetch(tag string, f func(context.Context) (any, error)) tea.Cmd {
 	}
 }
 
-// act runs a change and says how it went; the screen reloads after.
-func act(done string, f func(context.Context) error) tea.Cmd {
-	return func() tea.Msg { return statusMsg{done, f(context.Background())} }
+// act runs a change and says how it went (done, or what failed); the screen reloads after.
+func act(done, failed string, f func(context.Context) error) tea.Cmd {
+	return func() tea.Msg { return statusMsg{done, f(context.Background()), failed} }
 }
 
 func msgOf(m tea.Msg) tea.Cmd { return func() tea.Msg { return m } }
@@ -255,7 +256,7 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case loadedMsg:
 		a.loading = false
 		if msg.err != nil {
-			a.status = warn.Render(msg.err.Error())
+			a.status = failure(T("Couldn’t load this"), msg.err, false)
 			if f, isFollow := a.top().(*followView); isFollow && f.tag() == msg.tag {
 				return a, msgOf(popMsg{a.status}) // the session ended (or went): back, saying so
 			}
@@ -276,7 +277,11 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.loading, a.status = false, ok.Render(msg.status)
 	case statusMsg:
 		if msg.err != nil {
-			a.loading, a.status = false, warn.Render(msg.err.Error())
+			what, write := msg.what, msg.what != ""
+			if !write {
+				what = T("Couldn’t load this")
+			}
+			a.loading, a.status = false, failure(what, msg.err, write)
 			return a, nil
 		}
 		a.status, a.loading = ok.Render(msg.text), true

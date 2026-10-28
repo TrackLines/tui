@@ -679,7 +679,7 @@ func (v *boardView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			id, key, dest := t.ID, t.Key, cols[to]
 			v.col, v.row = to, len(dest.Tickets) // follow it to the bottom of its new column
 			a.loading = true
-			return v, act(F("Moved %s to %s.", key, dest.Name), func(ctx context.Context) error { return a.api.Move(ctx, id, dest) })
+			return v, act(F("Moved %s to %s.", key, dest.Name), F("Couldn’t move %s", key), func(ctx context.Context) error { return a.api.Move(ctx, id, dest) })
 		case "r":
 			a.loading = true
 			return v, v.load(a)
@@ -881,7 +881,7 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 				if e, isAPI := err.(*APIError); isAPI && e.Status == 403 && !strings.Contains(e.Msg, "read-only") {
 					err = errors.New(T("Only an organization admin or whoever uploaded it can remove this file."))
 				}
-				return statusMsg{F("Removed %s.", name), err}
+				return statusMsg{F("Removed %s.", name), err, F("Couldn’t remove %s", name)}
 			}
 		}
 		switch msg.String() {
@@ -934,11 +934,11 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			id := t.ID
 			if t.AssignedTo != nil && *t.AssignedTo == a.me {
 				a.loading = true
-				return v, act(T("Unassigned."), func(ctx context.Context) error { return a.api.Assign(ctx, id, nil) })
+				return v, act(T("Unassigned."), T("Couldn’t unassign it"), func(ctx context.Context) error { return a.api.Assign(ctx, id, nil) })
 			}
 			me := a.me
 			a.loading = true
-			return v, act(T("Assigned to you."), func(ctx context.Context) error { return a.api.Assign(ctx, id, &me) })
+			return v, act(T("Assigned to you."), T("Couldn’t assign it"), func(ctx context.Context) error { return a.api.Assign(ctx, id, &me) })
 		case "r":
 			a.loading = true
 			return v, v.load(a)
@@ -1185,7 +1185,7 @@ func (v *resolveView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			}
 			return v, func() tea.Msg {
 				if err := a.api.Resolve(context.Background(), id, res, ""); err != nil {
-					return statusMsg{err: err}
+					return statusMsg{err: err, what: T("Couldn’t close it")}
 				}
 				return popMsg{ok.Render(done)}
 			}
@@ -1273,7 +1273,7 @@ func (v *moveView) move(a *app, col Column, estimate string) tea.Cmd {
 	id := v.ticket.ID
 	return func() tea.Msg {
 		if err := a.api.MoveSized(context.Background(), id, col, estimate); err != nil {
-			return statusMsg{err: err}
+			return statusMsg{err: err, what: F("Couldn’t move it to %s", col.Name)}
 		}
 		return popMsg{ok.Render(F("Moved to %s.", col.Name))}
 	}
@@ -1580,8 +1580,8 @@ func (f *formView) save(a *app) tea.Cmd {
 	project, column := f.project, f.column
 	return func() tea.Msg {
 		t, err := a.api.Create(context.Background(), project, column, in)
-		if err != nil {
-			return statusMsg{err: err}
+		if err != nil { // the form stays open, with what was typed
+			return statusMsg{err: err, what: T("Couldn’t create the ticket")}
 		}
 		return popMsg{ok.Render(F("Created %s.", t.Key))}
 	}
@@ -1924,7 +1924,7 @@ func sendDraft(a *app, d drafts.Draft, pop bool) tea.Msg {
 		err = a.api.Comment(ctx, d.TicketID, d.Body)
 	}
 	if err != nil {
-		d.Error, d.Conflict = err.Error(), false
+		d.Error, d.Conflict = failureText(err, true), false
 		return keptMsg{d}
 	}
 	return sentMsg{d.Kind, d.TicketID, status, pop}
@@ -1938,7 +1938,7 @@ func retryDraft(a *app, d drafts.Draft) tea.Msg {
 	case drafts.Comment:
 		comments, err := a.api.Comments(ctx, d.TicketID)
 		if err != nil {
-			d.Error = err.Error()
+			d.Error = failureText(err, false)
 			return keptMsg{d}
 		}
 		if d.Sent(comments) {
@@ -1947,7 +1947,7 @@ func retryDraft(a *app, d drafts.Draft) tea.Msg {
 	case drafts.Edit:
 		t, err := a.api.Ticket(ctx, d.TicketID)
 		if err != nil {
-			d.Error = err.Error()
+			d.Error = failureText(err, false)
 			return keptMsg{d}
 		}
 		if d.Base != "" && t.UpdatedAt != d.Base {
