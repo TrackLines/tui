@@ -276,6 +276,8 @@ func press(a *app, keys ...string) {
 			msg = tea.KeyMsg{Type: tea.KeyCtrlS}
 		case "ctrl+u":
 			msg = tea.KeyMsg{Type: tea.KeyCtrlU}
+		case "ctrl+o":
+			msg = tea.KeyMsg{Type: tea.KeyCtrlO}
 		default:
 			msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)}
 		}

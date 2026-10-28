@@ -187,3 +187,26 @@ func uploadArrived(calls *[]string) string {
 	defer callsMu.Unlock()
 	return find(*calls, "POST /api/tickets/t1/attachments/upload")
 }
+
+// TL-713: ctrl+o on a new ticket creates it and goes straight to attaching a file to it; editing has no such key.
+func TestAttachAtCreate(t *testing.T) {
+	a, calls := start(t)
+	file := filepath.Join(t.TempDir(), "shot.png")
+	os.WriteFile(file, []byte("png"), 0o600)
+	press(a, "2", "enter", "enter", "n") // a new ticket on the Web board
+	expect(t, a, "ctrl+o save and attach a file")
+	press(a, "Login fails", "tab", "tab", "tab", "right", "ctrl+o")
+	expect(t, a, "Created TL-9.", "Attach a file to TL-9", "(0 on it now)")
+	a.top().(*attachView).input.SetValue(file)
+	press(a, "enter")
+	expect(t, a, "Attached shot.png.")
+	if find(*calls, "POST /api/tickets/t9/attachments/upload") == "" {
+		t.Fatalf("no upload to the new ticket: %v", *calls)
+	}
+
+	a.stack = append(a.stack, newForm(&Ticket{ID: "t1", Key: "TL-1", Title: "Fix login"}, "p1", "", "none"))
+	pump(a, a.top().load(a), 0)
+	if strings.Contains(a.View(), "ctrl+o") {
+		t.Fatal("the edit form offers ctrl+o")
+	}
+}
