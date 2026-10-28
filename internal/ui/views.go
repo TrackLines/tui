@@ -412,7 +412,7 @@ func (v *searchView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			if q == "" {
 				return v, msgOf(popMsg{})
 			}
-			return v, msgOf(replaceMsg{&listView{tag: "search:" + q, heading: F("Search: %s", q), query: q}})
+			return v, msgOf(replaceMsg{v: &listView{tag: "search:" + q, heading: F("Search: %s", q), query: q}})
 		}
 	}
 	var cmd tea.Cmd
@@ -466,7 +466,7 @@ func (v *gotoView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 				if err != nil {
 					return statusMsg{err: err}
 				}
-				return replaceMsg{&ticketView{id: t.ID}}
+				return replaceMsg{v: &ticketView{id: t.ID}}
 			}
 		}
 	}
@@ -1566,7 +1566,8 @@ func (f *formView) input() (TicketInput, string) {
 	return in, ""
 }
 
-func (f *formView) save(a *app) tea.Cmd {
+// save sends the form. attach (new tickets only, ctrl+o): then attach a file to it (TL-713).
+func (f *formView) save(a *app, attach bool) tea.Cmd {
 	in, problem := f.input()
 	if problem != "" {
 		a.status = warn.Render(problem)
@@ -1582,6 +1583,9 @@ func (f *formView) save(a *app) tea.Cmd {
 		t, err := a.api.Create(context.Background(), project, column, in)
 		if err != nil { // the form stays open, with what was typed
 			return statusMsg{err: err, what: T("Couldn’t create the ticket")}
+		}
+		if attach {
+			return replaceMsg{v: newAttach(t, 0), status: ok.Render(F("Created %s.", t.Key))}
 		}
 		return popMsg{ok.Render(F("Created %s.", t.Key))}
 	}
@@ -1600,7 +1604,11 @@ func (f *formView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	}
 	switch k.String() {
 	case "ctrl+s":
-		return f, f.save(a)
+		return f, f.save(a, false)
+	case "ctrl+o":
+		if f.editing == nil {
+			return f, f.save(a, true)
+		}
 	case "tab":
 		f.focus(1, true)
 		return f, nil
@@ -1614,7 +1622,7 @@ func (f *formView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	if f.cmd.on && f.field != fieldDescription { // the : prompt (the description has its own)
 		switch f.cmd.key(k, f.changed()) {
 		case vimSend:
-			return f, f.save(a)
+			return f, f.save(a, false)
 		case vimCancel:
 			return f, msgOf(popMsg{})
 		}
@@ -1624,7 +1632,7 @@ func (f *formView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	case f.field == fieldDescription: // its own vim modes
 		switch action, cmd := f.description.update(k); action {
 		case vimSend:
-			return f, f.save(a)
+			return f, f.save(a, false)
 		case vimCancel:
 			return f, msgOf(popMsg{})
 		default:
@@ -1837,10 +1845,14 @@ func (f *formView) render(a *app) string {
 }
 
 func (f *formView) help() string {
+	h := T("esc normal mode · tab or j/k field · i edit · h/l choose · :w save · :q cancel · ctrl+s save")
 	if !vimKeys {
-		return T("tab next field · ←/→ choose · ctrl+s save · esc cancel")
+		h = T("tab next field · ←/→ choose · ctrl+s save · esc cancel")
 	}
-	return T("esc normal mode · tab or j/k field · i edit · h/l choose · :w save · :q cancel · ctrl+s save")
+	if f.editing == nil {
+		h += " · " + T("ctrl+o save and attach a file")
+	}
+	return h
 }
 func (f *formView) typing() bool { return true }
 

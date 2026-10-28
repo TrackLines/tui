@@ -218,6 +218,7 @@ var fr = map[string]string{
 	"standup":                            "standup",
 	"tab %s · j/k move · h/l scroll title · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit": "tab %s · j/k déplacer · h/l défiler le titre · enter ouvrir · / rechercher · t aller à · 1–5 onglets · r recharger · ? aide · q quitter",
 	"tab next field · ←/→ choose · ctrl+s save · esc cancel":                                                         "tab champ suivant · ←/→ choisir · ctrl+s enregistrer · esc annuler",
+	"ctrl+o save and attach a file":         "ctrl+o enregistrer et joindre un fichier",
 	"tab pick file · o open":                "tab choisir un fichier · o ouvrir",
 	"tab pick sub-ticket · enter open":      "tab choisir un sous-ticket · enter ouvrir",
 	"tab pick sub-ticket/file · enter open": "tab choisir un sous-ticket/fichier · enter ouvrir",

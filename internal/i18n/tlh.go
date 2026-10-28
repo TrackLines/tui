@@ -218,6 +218,7 @@ var tlh = map[string]string{
 	"standup":                            "Qam ghom",
 	"tab %s · j/k move · h/l scroll title · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit": "tab %s · j/k yIvIH · h/l pong yIvIHmoH · enter yIpoSmoH · / yInej · t yIjaH · 1–5 Sopmey · r yIchu'moH · ? QaH · q yImej",
 	"tab next field · ←/→ choose · ctrl+s save · esc cancel":                                                         "tab Daq veb · ←/→ yIwIv · ctrl+s yIpol · esc yIqIl",
+	"ctrl+o save and attach a file":         "ctrl+o yIpol 'ej De'wI' yIghItlh",
 	"tab pick file · o open":                "tab ghItlh yIwIv · o yIpoSmoH",
 	"tab pick sub-ticket · enter open":      "tab ticket puq yIwIv · enter yIpoSmoH",
 	"tab pick sub-ticket/file · enter open": "tab ticket puq/ghItlh yIwIv · enter yIpoSmoH",

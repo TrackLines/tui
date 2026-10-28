@@ -64,8 +64,11 @@ type app struct {
 
 type (
 	pushMsg    struct{ v view }
-	replaceMsg struct{ v view }
-	popMsg     struct{ status string } // back, saying what happened
+	replaceMsg struct {
+		v      view
+		status string // shown over the new view, when set
+	}
+	popMsg struct{ status string } // back, saying what happened
 	// loadedMsg is a screen's data arriving; tag says whose, so a screen that's been left ignores it
 	loadedMsg struct {
 		tag  string
@@ -244,6 +247,9 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case replaceMsg:
 		a.stack[len(a.stack)-1] = msg.v
 		a.loading = true
+		if msg.status != "" {
+			a.status = msg.status
+		}
 		return a, msg.v.load(a)
 	case popMsg:
 		var bye tea.Cmd

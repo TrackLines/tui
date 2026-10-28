@@ -218,6 +218,7 @@ var nl = map[string]string{
 	"standup":                            "standup",
 	"tab %s · j/k move · h/l scroll title · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit": "tab %s · j/k bewegen · h/l titel schuiven · enter openen · / zoeken · t ga naar · 1–5 tabbladen · r herladen · ? hulp · q afsluiten",
 	"tab next field · ←/→ choose · ctrl+s save · esc cancel":                                                         "tab volgend veld · ←/→ kiezen · ctrl+s opslaan · esc annuleren",
+	"ctrl+o save and attach a file":         "ctrl+o opslaan en een bestand bijvoegen",
 	"tab pick file · o open":                "tab kies bestand · o openen",
 	"tab pick sub-ticket · enter open":      "tab kies subticket · enter openen",
 	"tab pick sub-ticket/file · enter open": "tab kies subticket/bestand · enter openen",
