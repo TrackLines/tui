@@ -50,6 +50,8 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most u
 | My work | `tab` switches between My work and Mentions, below it |
 | Lists (My work, Mentions, search, backlog) | `j`/`k` move · `g`/`G` top/bottom · `h`/`l` slide the selected title along to read the rest (`0` start, `$` end) · `enter` open · `r` reload |
 | Backlog | also `m` move the selected ticket to a board · `n` new ticket · `s` sort (backlog order, newest, oldest) · `f` filter by labels |
+| Combined filters (`F` on a ticket list) | `tab`/`shift+tab` field · `enter` apply · `ctrl+x` clear fields · `esc` cancel. On a board, `F` opens its tickets as a list; press `F` again to edit filters. |
+| Saved views (`V`) | `j`/`k` select · `enter` reopen · `s` save the current list and filters · `r` rename · `d` delete · `esc`/`q` back. `s` is available when opened from a ticket list, My work section or board. |
 | Label filter | `j`/`k` · `space` toggle · `c` clear · `enter` apply · `esc` cancel |
 | Projects | `j`/`k` · `enter` opens a project: its boards, then its backlog |
 | Project page | `j`/`k` select a board or Backlog · `enter` open · `B` (Shift+B) jump straight to Backlog |
@@ -75,6 +77,18 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most u
 - `m` on a backlog ticket picks a board, then a column, then an estimate if that board sizes tickets. When a move isn't allowed (a read-only key, a sprint on its last day), the TUI says why.
 
 ## Config
+
+### Saved filters
+
+On a ticket list, `F` combines project and board (name or ID), status (`open`, `done`, or a column name), type, priority, assignee (`me`, `unassigned`, or a user ID) and labels. Dimensions combine with AND; every comma-separated label must match. Blank fields leave that dimension unrestricted. The header shows active filters; `ctrl+x` on the list clears both combined filters and the existing backlog label filter. Empty filtered sections remain visible so you can clear them.
+
+Filters narrow the source list's fetched tickets: My work and Created by me contain open tickets, Mentions contains unfinished mentions, search currently returns up to 50 results, and backlog up to 100. They don't turn a list into an organization-wide search. A board opened as a list includes all of its returned columns, including Done.
+
+Press `V`, then `s`, and enter a unique name to save a view. Reopening fetches fresh tickets from the original source, retaining its query, board/project, sort and filters. Presets live in `$XDG_CONFIG_HOME/tracklines/filters.json` (normally `~/.config/tracklines/filters.json`), alongside the existing config. They stay on this machine; credentials aren't stored in presets. Renames and deletions persist immediately, and failed saves are reported without discarding the name you typed.
+
+`?` includes the previous screen's shortcuts alongside global keys. Navigation shortcuts stay inactive while typing in filter fields, preset names, searches and ticket editors, with either Vim or standard editing enabled.
+
+### Settings
 
 `~/.config/tracklines/config`, one `name = value` per line (`#` starts a comment). The repo's [`config.example`](config.example) has every setting at its default, explained:
 

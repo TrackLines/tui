@@ -219,6 +219,20 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.width, a.height = msg.Width, msg.Height
 	case peopleMsg:
 		a.people, a.me = msg.people, msg.me
+		for _, screen := range a.stack {
+			switch v := screen.(type) {
+			case *listView:
+				if v.allItems != nil {
+					v.applyFilters(a)
+				}
+			case *homeView:
+				for _, list := range v.sections {
+					if list.allItems != nil {
+						list.applyFilters(a)
+					}
+				}
+			}
+		}
 		return a, nil
 	case weeksMsg:
 		a.weeks = &msg.weeks
@@ -297,6 +311,9 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, a.quit()
 		}
 		if !a.top().typing() {
+			if cmd, handled := a.filterShortcut(msg.String()); handled {
+				return a, cmd
+			}
 			switch k := msg.String(); k {
 			case "q": // like lazygit: back out of a screen, and quit only from the top one
 				if len(a.stack) > 1 {
@@ -326,7 +343,7 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, msgOf(pushMsg{newSearch(q)})
 			case "?":
 				if _, already := a.top().(*aboutView); !already {
-					return a, msgOf(pushMsg{&aboutView{}})
+					return a, msgOf(pushMsg{&aboutView{screenKeys: a.top().help()}})
 				}
 			case "D": // unsent comments and edits
 				if _, already := a.top().(*draftsView); !already {

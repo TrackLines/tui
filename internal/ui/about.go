@@ -15,7 +15,10 @@ import (
 
 // aboutView is ? : the version you're running, whether there's a newer one (u installs it), and the
 // keys that work everywhere.
-type aboutView struct{ updating bool }
+type aboutView struct {
+	updating   bool
+	screenKeys string
+}
 
 type updatedMsg struct {
 	tag string
@@ -79,6 +82,9 @@ func (v *aboutView) render(a *app) string {
 	for _, k := range [][2]string{
 		{"1 / 2", T("My work (Created by me, Mentions) / Projects")},
 		{"/", T("search everything")},
+		{"F", T("combined filters (ticket lists; boards open as a list)")},
+		{"V", T("saved views: open, save, rename or delete")},
+		{"ctrl+x", T("clear all filters on the current ticket list")},
 		{"t", T("go to a ticket by its key (TL-308)")},
 		{"D", T("unsent drafts: comments and edits that didn't reach the server")},
 		{"esc / q", T("back (q quits on My work and Projects)")},
@@ -87,6 +93,9 @@ func (v *aboutView) render(a *app) string {
 		{"? h", T("help: answers to common questions")},
 	} {
 		b.WriteString(fmt.Sprintf("  %-8s %s\n", k[0], k[1]))
+	}
+	if v.screenKeys != "" {
+		b.WriteString("\n" + bold.Render(T("Previous screen shortcuts")) + "\n" + wrap(v.screenKeys, a.width) + "\n")
 	}
 	b.WriteString("\n" + muted.Render(T("Each screen lists its own keys at the bottom. More: github.com/TrackLines/tui")) + "\n")
 	return b.String()
