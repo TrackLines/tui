@@ -2,6 +2,14 @@ package i18n
 
 // de is German: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var de = map[string]string{
+	"open": "offen",
+
+	"Blocked by":           "Blockiert durch",
+	"b to browse blockers": "b zum Anzeigen der Blocker",
+	"b blockers":           "b Blocker",
+	"No blocking tickets.": "Keine blockierenden Tickets.",
+	"j/k select blocker · enter open · r reload · esc/q back": "j/k Blocker wählen · enter öffnen · r neu laden · esc/q zurück",
+
 	"%d days":          "%d Tage",
 	"%d days overdue":  "%d Tage überfällig",
 	"%d hours":         "%d Stunden",

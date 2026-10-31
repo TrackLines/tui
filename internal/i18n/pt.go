@@ -2,6 +2,14 @@ package i18n
 
 // pt is Brazilian Portuguese: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var pt = map[string]string{
+	"open": "aberto",
+
+	"Blocked by":           "Bloqueado por",
+	"b to browse blockers": "b para ver bloqueadores",
+	"b blockers":           "b bloqueadores",
+	"No blocking tickets.": "Nenhum ticket bloqueador.",
+	"j/k select blocker · enter open · r reload · esc/q back": "j/k selecionar bloqueador · enter abrir · r recarregar · esc/q voltar",
+
 	"%d days":          "%d dias",
 	"%d days overdue":  "%d dias de atraso",
 	"%d hours":         "%d horas",

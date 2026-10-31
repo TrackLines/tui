@@ -49,9 +49,19 @@ type Ticket struct {
 	UpdatedAt    string  `json:"updated_at"` // an edit draft checks it before resending (TL-599)
 	// where it sits in the tree (TL-514): the ticket it's a sub-ticket of, its own sub-tickets, and
 	// an epic's progress over them; only the single-ticket endpoint fills these
-	Parent   *Parent       `json:"parent"`
-	Children []Child       `json:"children"`
-	Epic     *EpicProgress `json:"epic"`
+	BlockedBy []Dependency  `json:"blocked_by"`
+	Parent    *Parent       `json:"parent"`
+	Children  []Child       `json:"children"`
+	Epic      *EpicProgress `json:"epic"`
+}
+
+// Dependency is a blocking ticket; it can belong to another project in the organization.
+type Dependency struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Done        bool   `json:"done"`
+	ProjectID   string `json:"project_id,omitempty"`
+	ProjectName string `json:"project_name,omitempty"`
 }
 
 // Parent is the ticket a sub-ticket belongs to (the API gives no key for it).

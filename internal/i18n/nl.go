@@ -2,6 +2,14 @@ package i18n
 
 // nl is Dutch: English text → Nederlands. A missing entry shows the English (i18n_test finds it).
 var nl = map[string]string{
+	"open": "open",
+
+	"Blocked by":           "Geblokkeerd door",
+	"b to browse blockers": "b om blokkerende tickets te bekijken",
+	"b blockers":           "b blokkerende tickets",
+	"No blocking tickets.": "Geen blokkerende tickets.",
+	"j/k select blocker · enter open · r reload · esc/q back": "j/k blokkerend ticket kiezen · enter openen · r herladen · esc/q terug",
+
 	"%d days":          "%d dagen",
 	"%d days overdue":  "%d dagen te laat",
 	"%d hours":         "%d uur",
