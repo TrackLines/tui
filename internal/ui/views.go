@@ -20,6 +20,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/tracklines/tui/internal/api"
+	"github.com/tracklines/tui/internal/config"
 	"github.com/tracklines/tui/internal/drafts"
 )
 
@@ -29,6 +30,11 @@ type listView struct {
 	tag, heading string
 	query        string // search
 	project      string // backlog
+	allItems     []Ticket
+	allMentions  []Mention
+	filters      config.TicketFilters
+	boardID      string // a board opened as a filterable list
+	preset       string
 	items        []Ticket
 	mentions     []Mention // Mentions: who and when, per item
 	loaded       bool      // the first load has arrived (so empty is "nothing" not "not yet")
@@ -42,13 +48,43 @@ type listView struct {
 	inUse        []Label  // backlog: the labels its tickets have, for the filter
 }
 
+type filteredMentions struct {
+	tickets  []Ticket
+	mentions []Mention
+}
+
 var sorts = []string{"manual", "newest", "oldest"}
 
 func (v *listView) load(a *app) tea.Cmd {
 	return fetch(v.tag, func(ctx context.Context) (any, error) {
 		switch {
+		case v.boardID != "":
+			b, err := a.api.Board(ctx, v.boardID)
+			var tickets []Ticket
+			for i, c := range b.Columns {
+				for _, t := range c.Tickets {
+					t.ProjectID, t.BoardID, t.BoardName, t.ColumnName, t.Done = b.ProjectID, &b.ID, &b.Name, &c.Name, i == len(b.Columns)-1
+					tickets = append(tickets, t)
+				}
+			}
+			return tickets, err
 		case v.tag == "mentions":
-			return a.api.Mentions(ctx)
+			mentions, err := a.api.Mentions(ctx)
+			if err != nil || v.filterSummary() == "" {
+				return mentions, err
+			}
+			data := filteredMentions{mentions: mentions}
+			for _, mention := range mentions {
+				ticket, err := a.api.Ticket(ctx, mention.TicketID)
+				if err != nil {
+					return nil, err
+				}
+				if ticket.ProjectName == "" {
+					ticket.ProjectName = mention.ProjectName
+				}
+				data.tickets = append(data.tickets, ticket)
+			}
+			return data, nil
 		case v.tag == "created":
 			return a.api.MyCreated(ctx)
 		case v.project != "":
@@ -68,6 +104,8 @@ func (v *listView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		}
 		v.items, v.mentions, v.loaded = nil, nil, true
 		switch d := msg.data.(type) {
+		case filteredMentions:
+			v.items, v.mentions = d.tickets, d.mentions
 		case []Ticket:
 			v.items = d
 		case BacklogPage:
@@ -78,6 +116,8 @@ func (v *listView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 				v.items = append(v.items, Ticket{ID: m.TicketID, Key: m.Key, Title: m.Title, ProjectName: m.ProjectName})
 			}
 		}
+		v.allItems, v.allMentions = v.items, v.mentions
+		v.applyFilters(a)
 		v.cursor = min(v.cursor, max(len(v.items)-1, 0))
 		v.hscroll = 0
 	case tea.KeyMsg:
@@ -137,6 +177,9 @@ func (v *listView) render(a *app) string {
 		if len(v.labels) > 0 {
 			b.WriteString(muted.Render("  · "+T("labels:")+" ") + strings.Join(v.labels, ", "))
 		}
+	}
+	if summary := v.filterSummary(); summary != "" {
+		b.WriteString("\n" + muted.Render(summary))
 	}
 	b.WriteString("\n\n")
 	if v.query != "" && !v.loaded { // the search failed: loadedMsg's error is in the status line
@@ -223,7 +266,7 @@ func (v *listView) help() string {
 	if v.query != "" {
 		h = T("j/k move · h/l scroll title · enter open · / search again · r retry · esc/q back · Q quit")
 	}
-	return h
+	return h + T(" · F filters · V saved views · ctrl+x clear")
 }
 
 func (v *listView) typing() bool { return false }
@@ -263,7 +306,7 @@ func (v *homeView) load(a *app) tea.Cmd {
 func (v *homeView) visible() []int {
 	var out []int
 	for i, s := range v.sections {
-		if !s.loaded || len(s.items) > 0 {
+		if !s.loaded || len(s.items) > 0 || s.filterSummary() != "" {
 			out = append(out, i)
 		}
 	}
@@ -380,7 +423,7 @@ func (v *homeView) help() string {
 	for _, i := range v.visible() {
 		names = append(names, strings.ToLower(v.sections[i].heading))
 	}
-	return F("tab %s · j/k move · h/l scroll title · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit", strings.Join(names, "/"))
+	return F("tab %s · j/k move · h/l scroll title · enter open · / search · t go to · 1–5 tabs · r reload · ? help · q quit", strings.Join(names, "/")) + T(" · F filters · V saved views · ctrl+x clear")
 }
 func (v *homeView) typing() bool { return false }
 
@@ -780,7 +823,7 @@ func intersperse(blocks []string) []string {
 }
 
 func (v *boardView) help() string {
-	return T("h/l column · j/k ticket · enter open · H/L move ticket · n new · r reload · esc/q back")
+	return T("h/l column · j/k ticket · enter open · H/L move ticket · n new · r reload · esc/q back") + T(" · F filters · V saved views")
 }
 func (v *boardView) typing() bool { return false }
 
