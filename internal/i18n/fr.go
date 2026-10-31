@@ -2,6 +2,13 @@ package i18n
 
 // fr is French: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var fr = map[string]string{
+	"open": "ouvert",
+
+	"Blocked by":           "Bloqué par",
+	"b to browse blockers": "b pour voir les tickets bloquants",
+	"b blockers":           "b tickets bloquants",
+	"No blocking tickets.": "Aucun ticket bloquant.",
+	"j/k select blocker · enter open · r reload · esc/q back": "j/k choisir · entrée ouvrir · r recharger · échap/q retour",
 	"Project":  "Projet",
 	"Board":    "Tableau",
 	"Status":   "État",

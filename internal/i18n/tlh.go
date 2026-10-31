@@ -2,6 +2,13 @@ package i18n
 
 // tlh is Klingon, for fun: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var tlh = map[string]string{
+	"open": "ta’be’",
+
+	"Blocked by":           "botwI’",
+	"b to browse blockers": "b botwI’ cha’",
+	"b blockers":           "b botwI’",
+	"No blocking tickets.": "pagh botwI’.",
+	"j/k select blocker · enter open · r reload · esc/q back": "j/k botwI’ wIv · enter poSmoH · r chu’qa’ · esc/q chegh",
 	"Project":  "jInmol",
 	"Board":    "Qu’ tetlh",
 	"Status":   "Dotlh",

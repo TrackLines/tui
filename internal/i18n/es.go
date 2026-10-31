@@ -2,6 +2,13 @@ package i18n
 
 // es is Spanish: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var es = map[string]string{
+	"open": "abierto",
+
+	"Blocked by":           "Bloqueado por",
+	"b to browse blockers": "b para ver bloqueos",
+	"b blockers":           "b bloqueos",
+	"No blocking tickets.": "No hay tickets bloqueantes.",
+	"j/k select blocker · enter open · r reload · esc/q back": "j/k elegir bloqueo · enter abrir · r recargar · esc/q volver",
 	"Project":  "Proyecto",
 	"Board":    "Tablero",
 	"Status":   "Estado",

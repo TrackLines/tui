@@ -964,6 +964,11 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			return v, msgOf(pushMsg{&resolveView{ticket: *t}})
 		case "c":
 			return v, msgOf(pushMsg{newComment(*t)})
+		case "b":
+			if len(t.BlockedBy) > 0 {
+				return v, msgOf(pushMsg{&blockersView{ticket: *t}})
+			}
+			return v, nil
 		case "h": // its history: what happened to it, by whom, when (TL-598)
 			return v, msgOf(pushMsg{&historyView{ticket: *t}})
 		case "a":
@@ -1068,6 +1073,12 @@ func (v *ticketView) detail(a *app) string {
 	}
 	if _, ok := a.drafts.Get(drafts.Edit, t.ID); ok {
 		b.WriteString(warn.Render(T("Unsent edit")) + muted.Render(": "+T("e to finish it")) + "\n")
+	}
+	if len(t.BlockedBy) > 0 {
+		b.WriteString(accent.Render(T("Blocked by")) + muted.Render(" · "+T("b to browse blockers")) + "\n")
+		for _, blocker := range t.BlockedBy {
+			b.WriteString(wrap("  "+dependencyLabel(blocker), a.width) + "\n")
+		}
 	}
 	if t.Parent != nil {
 		b.WriteString(muted.Render(T("parent:")+" ") + t.Parent.Title + muted.Render(" "+T("(p to open)")) + "\n")
@@ -1185,6 +1196,9 @@ func (v *ticketView) treeHelp() string {
 		return ""
 	}
 	h := ""
+	if len(v.ticket.BlockedBy) > 0 {
+		h += T("b blockers") + " · "
+	}
 	switch kids, files := len(v.ticket.Children), len(v.files); {
 	case kids > 0 && files > 0:
 		h += T("tab pick sub-ticket/file · enter open") + " · "
