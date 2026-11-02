@@ -501,7 +501,8 @@ func (c *Client) Assign(ctx context.Context, ticket string, to *string) error {
 type Session struct {
 	Host  string `json:"host"`
 	Focus struct {
-		TicketID *string `json:"ticketId"`
+		TicketID     *string `json:"ticketId"`
+		AttachmentID *string `json:"attachmentId"`
 	} `json:"focus"`
 	People []string `json:"people"`
 }

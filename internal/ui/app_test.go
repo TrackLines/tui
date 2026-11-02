@@ -907,7 +907,7 @@ func TestFollowingSessions(t *testing.T) {
 	liveFocus = "t1"
 	f := a.top().(*followView)
 	pump(a, f.check(a, false), 0)
-	expect(t, a, "TL-1", "Fix login", "Login fails")
+	expect(t, a, "TL-1", "Fix login", "Login fails", "on it") // and its comments
 	// leaving tells the server
 	press(a, "esc")
 	if find(*calls, "POST /api/boards/b1/live/standup/leave") == "" {

@@ -151,6 +151,7 @@ var tlh = map[string]string{
 	"Sub-tickets (%d)":                 "ticket puqmey (%d)",
 	"The %s has ended.":                "%s rInpu'.",
 	"The host hasn’t opened a ticket.": "ticket poSmoHbe' pa' DevwI'.",
+	"The host is viewing %s": "%s legh DevwI'",
 	"The search didn’t work.":          "Qagh! nejghach luj.",
 	"There’s no ticket %s.":            "ticket %s tu'lu'be'.",
 	"This board needs an estimate.":    "pIHghach poQ 'echletvam.",
