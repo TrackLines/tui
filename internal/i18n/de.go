@@ -151,6 +151,7 @@ var de = map[string]string{
 	"Sub-tickets (%d)":                 "Untertickets (%d)",
 	"The %s has ended.":                "Das %s ist beendet.",
 	"The host hasn’t opened a ticket.": "Die Moderation hat noch kein Ticket geöffnet.",
+	"The host is viewing %s": "Der Host sieht sich %s an",
 	"The search didn’t work.":          "Die Suche hat nicht funktioniert.",
 	"There’s no ticket %s.":            "Es gibt kein Ticket %s.",
 	"This board needs an estimate.":    "Dieses Board braucht eine Schätzung.",

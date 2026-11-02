@@ -151,6 +151,7 @@ var nl = map[string]string{
 	"Sub-tickets (%d)":                 "Subtickets (%d)",
 	"The %s has ended.":                "De %s is afgelopen.",
 	"The host hasn’t opened a ticket.": "De leider heeft nog geen ticket geopend.",
+	"The host is viewing %s": "De host bekijkt %s",
 	"The search didn’t work.":          "Het zoeken is mislukt.",
 	"There’s no ticket %s.":            "Er is geen ticket %s.",
 	"This board needs an estimate.":    "Dit bord vraagt een schatting.",

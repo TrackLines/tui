@@ -19,6 +19,8 @@ type followView struct {
 	session        *Session
 	turn           *StandupTurn
 	ticket         *Ticket // what the host has open
+	comments       []Comment
+	files          []Attachment
 	ticks          int
 }
 
@@ -27,9 +29,11 @@ const followEvery = 2 * time.Second
 type (
 	followTick struct{ tag string }
 	followData struct {
-		session Session
-		turn    *StandupTurn
-		ticket  *Ticket
+		session  Session
+		turn     *StandupTurn
+		ticket   *Ticket
+		comments []Comment
+		files    []Attachment
 	}
 )
 
@@ -39,7 +43,8 @@ func (v *followView) load(a *app) tea.Cmd { return v.check(a, true) }
 
 // check reads the session (joining, every 30s, to stay in it), whose turn it is, and the host's ticket.
 func (v *followView) check(a *app, join bool) tea.Cmd {
-	known := v.ticket
+	known, comments, files := v.ticket, v.comments, v.files
+	refresh := v.ticks%5 == 0 // every 10s: nothing announces a new comment or file
 	return fetch(v.tag(), func(ctx context.Context) (any, error) {
 		var s Session
 		var err error
@@ -62,12 +67,25 @@ func (v *followView) check(a *app, join bool) tea.Cmd {
 		}
 		if id := s.Focus.TicketID; id == nil {
 			d.ticket = nil
-		} else if known == nil || known.ID != *id {
+		} else if changed := known == nil || known.ID != *id; changed || refresh {
 			t, err := a.api.Ticket(ctx, *id)
-			if err != nil {
+			if err != nil && changed {
 				return nil, err
 			}
-			d.ticket = &t
+			if err == nil {
+				d.ticket = &t
+			}
+			if !changed {
+				d.comments, d.files = comments, files // kept if reading them again fails
+			}
+			if cs, err := a.api.Comments(ctx, *id); err == nil {
+				d.comments = cs
+			}
+			if fs, err := a.api.Attachments(ctx, *id); err == nil {
+				d.files = fs
+			}
+		} else {
+			d.comments, d.files = comments, files
 		}
 		return d, nil
 	})
@@ -80,7 +98,7 @@ func (v *followView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 			return v, nil
 		}
 		if d, isData := msg.data.(followData); isData {
-			v.session, v.turn, v.ticket = &d.session, d.turn, d.ticket
+			v.session, v.turn, v.ticket, v.comments, v.files = &d.session, d.turn, d.ticket, d.comments, d.files
 		}
 		tag := v.tag()
 		return v, tea.Tick(followEvery, func(time.Time) tea.Msg { return followTick{tag} })
@@ -126,7 +144,14 @@ func (v *followView) render(a *app) string {
 	if v.ticket == nil {
 		b.WriteString(muted.Render(T("The host hasn’t opened a ticket.")) + "\n")
 	} else {
-		b.WriteString((&ticketView{ticket: v.ticket}).detail(a))
+		if id := v.session.Focus.AttachmentID; id != nil {
+			for _, f := range v.files {
+				if f.ID == *id {
+					b.WriteString(accent.Render(F("The host is viewing %s", f.Name)) + "\n\n")
+				}
+			}
+		}
+		b.WriteString((&ticketView{ticket: v.ticket, comments: v.comments, files: v.files}).detail(a))
 	}
 	return b.String()
 }
