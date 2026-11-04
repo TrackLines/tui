@@ -151,7 +151,7 @@ var tlh = map[string]string{
 	"Sub-tickets (%d)":                 "ticket puqmey (%d)",
 	"The %s has ended.":                "%s rInpu'.",
 	"The host hasn’t opened a ticket.": "ticket poSmoHbe' pa' DevwI'.",
-	"The host is viewing %s": "%s legh DevwI'",
+	"The host is viewing %s":           "%s legh DevwI'",
 	"The search didn’t work.":          "Qagh! nejghach luj.",
 	"There’s no ticket %s.":            "ticket %s tu'lu'be'.",
 	"This board needs an estimate.":    "pIHghach poQ 'echletvam.",
@@ -368,4 +368,12 @@ var tlh = map[string]string{
 	"refused":                          "lajQo'",
 	"too many requests":                "tlhob law' law'",
 	"TrackLin.es had a problem (%d)":   "TrackLin.es Qagh (%d)",
+
+	// flags.gg ticket flags (TL-793)
+	"Flag %s":                        "ra'wI' %s",
+	"made when it goes onto a board": "board Daq ghoSDI' chenmoHlu'",
+	"%s not yet":                     "%s wa'logh ghobe'",
+	"%s on":                          "%s chu'lu'",
+	"%s off":                         "%s chu'Ha'lu'",
+	"flags.gg: %s":                   "flags.gg: %s",
 }

@@ -44,6 +44,10 @@ type Ticket struct {
 	TimeboxDays  *int    `json:"timebox_days"`
 	TimeboxHours *int    `json:"timebox_hours"`
 	DueDate      *string `json:"due_date"`   // YYYY-MM-DD, or null (TL-640)
+	// a flags.gg feature flag that follows it across the board (TL-793): its name, and what flags.gg last refused
+	NeedsFlag bool    `json:"needs_flag"`
+	FlagName  *string `json:"flag_name"`
+	FlagError *string `json:"flag_error"`
 	StartedAt    *string `json:"started_at"` // first move into In Progress; drives the timebox countdown (TL-506)
 	DoneAt       *string `json:"done_at"`
 	UpdatedAt    string  `json:"updated_at"` // an edit draft checks it before resending (TL-599)
@@ -251,6 +255,25 @@ func (c *Client) search(ctx context.Context, q url.Values) ([]Ticket, error) {
 	var out []Ticket
 	err := c.do(ctx, http.MethodGet, "/search?"+q.Encode(), nil, &out)
 	return out, err
+}
+
+// TicketFlag is a ticket's flag in flags.gg (TL-793): its state in each environment, lowest first.
+type TicketFlag struct {
+	Name         string `json:"name"`
+	Environments []struct {
+		Name    string `json:"name"`
+		Present bool   `json:"present"` // it has reached this environment
+		Enabled bool   `json:"enabled"`
+	} `json:"environments"`
+}
+
+// TicketFlag reads a ticket's flag from flags.gg (through the API); an error until it's made.
+func (c *Client) TicketFlag(ctx context.Context, id string) (*TicketFlag, error) {
+	var f TicketFlag
+	if err := c.do(ctx, http.MethodGet, "/tickets/"+url.PathEscape(id)+"/flag", nil, &f); err != nil {
+		return nil, err
+	}
+	return &f, nil
 }
 
 func (c *Client) Ticket(ctx context.Context, id string) (Ticket, error) {
