@@ -17,6 +17,7 @@ var (
 type (
 	Client      = api.Client
 	Ticket      = api.Ticket
+	TicketFlag  = api.TicketFlag
 	TicketInput = api.TicketInput
 	Project     = api.Project
 	Mention     = api.Mention

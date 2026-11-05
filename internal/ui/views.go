@@ -224,6 +224,9 @@ func (v *listView) render(a *app) string {
 		if due := dueBadge(&v.items[i], time.Now()); due != "" {
 			row += " " + due
 		}
+		if t.NeedsFlag {
+			row += " " + flagMark(&t)
+		}
 		if p := t.Priority; p == "urgent" || p == "high" {
 			row += " " + priority(p)
 		}
@@ -807,6 +810,9 @@ func (v *boardView) selected(a *app) string {
 	if due := dueBadge(&t, time.Now()); due != "" {
 		meta = append(meta, due)
 	}
+	if t.NeedsFlag {
+		meta = append(meta, flagMark(&t))
+	}
 	return wrap(accent.Render(t.Key)+" "+t.Title, a.width) + "\n" + muted.Render(strings.Join(meta, " · "))
 }
 
@@ -833,6 +839,7 @@ type ticketView struct {
 	ticket   *Ticket
 	comments []Comment
 	files    []Attachment
+	flag     *TicketFlag // its flags.gg flag's state, when it needs one and flags.gg has it (TL-793)
 	view     viewport.Model
 	sel      int         // picked row, 1-based over sub-tickets then files; 0 = none (TL-514, TL-522)
 	ticking  bool        // the timebox countdown is running: a reload mustn't start a second one
@@ -851,6 +858,7 @@ type ticketData struct {
 	t        Ticket
 	comments []Comment
 	files    []Attachment
+	flag     *TicketFlag
 }
 
 // openFile hands a file's URL to the system's viewer (xdg-open, or open on macOS) and doesn't wait
@@ -879,7 +887,11 @@ func (v *ticketView) load(a *app) tea.Cmd {
 			return nil, err
 		}
 		files, _ := a.api.Attachments(ctx, v.id) // ponytail: the ticket still shows if its files can't load
-		return ticketData{t, cs, files}, nil
+		var flag *TicketFlag
+		if t.NeedsFlag {
+			flag, _ = a.api.TicketFlag(ctx, v.id) // not made yet, or flags.gg away: the name still shows
+		}
+		return ticketData{t, cs, files, flag}, nil
 	})
 }
 
@@ -887,7 +899,7 @@ func (v *ticketView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 	switch msg := msg.(type) {
 	case loadedMsg:
 		if d, isTicket := msg.data.(ticketData); isTicket && msg.tag == "ticket:"+v.id {
-			v.ticket, v.comments, v.files = &d.t, d.comments, d.files
+			v.ticket, v.comments, v.files, v.flag = &d.t, d.comments, d.files, d.flag
 			at := v.view.YOffset // a reload (r, back, or in the background: TL-649) keeps your place
 			v.view = viewport.New(a.width, a.rows())
 			v.view.SetContent(v.detail(a))
@@ -1068,6 +1080,9 @@ func (v *ticketView) detail(a *app) string {
 		meta = append(meta, ok.Render(T("done")))
 	}
 	b.WriteString(muted.Render(strings.Join(meta, " · ")) + "\n")
+	if line := flagLine(t, v.flag); line != "" {
+		b.WriteString(line + "\n")
+	}
 	if _, ok := a.drafts.Get(drafts.Comment, t.ID); ok {
 		b.WriteString(warn.Render(T("Unsent comment")) + muted.Render(": "+T("c to finish it")) + "\n")
 	}

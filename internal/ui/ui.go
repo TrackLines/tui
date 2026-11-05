@@ -690,3 +690,44 @@ func dueBadge(t *Ticket, now time.Time) string {
 	}
 	return muted.Render(dueText(*t.DueDate, now))
 }
+
+// flagMark marks a ticket that needs a flags.gg flag (TL-793): red when flags.gg refused something.
+func flagMark(t *Ticket) string {
+	if t.FlagError != nil {
+		return warn.Render("⚑")
+	}
+	return muted.Render("⚑")
+}
+
+// flagLine is a ticket's flag on its page: its name, then where it's on, off or not yet; what flags.gg
+// last refused; "" when it doesn't need one.
+func flagLine(t *Ticket, f *TicketFlag) string {
+	if !t.NeedsFlag {
+		return ""
+	}
+	name := ""
+	if t.FlagName != nil {
+		name = *t.FlagName
+	}
+	line := F("Flag %s", accent.Render(name))
+	if f == nil {
+		line += muted.Render(" · " + T("made when it goes onto a board"))
+	} else {
+		var envs []string
+		for _, e := range f.Environments {
+			switch {
+			case !e.Present:
+				envs = append(envs, muted.Render(F("%s not yet", e.Name)))
+			case e.Enabled:
+				envs = append(envs, ok.Render(F("%s on", e.Name)))
+			default:
+				envs = append(envs, F("%s off", e.Name))
+			}
+		}
+		line += " · " + strings.Join(envs, " · ")
+	}
+	if t.FlagError != nil {
+		line += "\n" + warn.Render(F("flags.gg: %s", *t.FlagError))
+	}
+	return line
+}

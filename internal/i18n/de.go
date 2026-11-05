@@ -151,7 +151,7 @@ var de = map[string]string{
 	"Sub-tickets (%d)":                 "Untertickets (%d)",
 	"The %s has ended.":                "Das %s ist beendet.",
 	"The host hasn’t opened a ticket.": "Die Moderation hat noch kein Ticket geöffnet.",
-	"The host is viewing %s": "Der Host sieht sich %s an",
+	"The host is viewing %s":           "Der Host sieht sich %s an",
 	"The search didn’t work.":          "Die Suche hat nicht funktioniert.",
 	"There’s no ticket %s.":            "Es gibt kein Ticket %s.",
 	"This board needs an estimate.":    "Dieses Board braucht eine Schätzung.",
@@ -368,4 +368,12 @@ var de = map[string]string{
 	"refused":                          "abgelehnt",
 	"too many requests":                "zu viele Anfragen",
 	"TrackLin.es had a problem (%d)":   "TrackLin.es hatte ein Problem (%d)",
+
+	// flags.gg ticket flags (TL-793)
+	"Flag %s":                        "Flag %s",
+	"made when it goes onto a board": "wird angelegt, sobald es auf ein Board kommt",
+	"%s not yet":                     "%s noch nicht",
+	"%s on":                          "%s an",
+	"%s off":                         "%s aus",
+	"flags.gg: %s":                   "flags.gg: %s",
 }
