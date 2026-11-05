@@ -271,6 +271,7 @@ var tlh = map[string]string{
 	"this screen": "HaSta vam",
 	"timebox %s":  "poH veH %s",
 	"tracklines needs a personal API key (tl_p_…).\n\nMake one at https://tracklin.es/account/api-keys, then either:\n  mkdir -p ~/.config/tracklines && echo 'tl_p_…' > ~/.config/tracklines/key && chmod 600 ~/.config/tracklines/key\nor set TRACKLINES_API_KEY.": "nIteb API ngaQHa'moHwI' (tl_p_…) poQ tracklines.\n\nhttps://tracklin.es/account/api-keys Daq wa' yIchenmoH, ghIq:\n  mkdir -p ~/.config/tracklines && echo 'tl_p_…' > ~/.config/tracklines/key && chmod 600 ~/.config/tracklines/key\npagh TRACKLINES_API_KEY yIcher.",
+	"tracklines needs a terminal to draw in: run it from one, not from a script, a pipe or CI.": "tracklines DaH ghItlhmeH terminal poQ: terminal Daq yIchu', script, pipe, CI Daq yIchu'Qo'.",
 	"unassigned": "ta'wI' Hutlh",
 	"unsent drafts: comments and edits that didn't reach the server": "ngeHlu'be'bogh ghItlhmey: serverDaq paw'be'bogh QInmey choHmey je",
 	"updating…":                         "chu'moHlI'…",
