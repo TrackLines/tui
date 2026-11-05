@@ -271,6 +271,7 @@ var fr = map[string]string{
 	"this screen": "cet écran",
 	"timebox %s":  "timebox %s",
 	"tracklines needs a personal API key (tl_p_…).\n\nMake one at https://tracklin.es/account/api-keys, then either:\n  mkdir -p ~/.config/tracklines && echo 'tl_p_…' > ~/.config/tracklines/key && chmod 600 ~/.config/tracklines/key\nor set TRACKLINES_API_KEY.": "tracklines nécessite une clé API personnelle (tl_p_…).\n\nCréez-en une sur https://tracklin.es/account/api-keys, puis soit :\n  mkdir -p ~/.config/tracklines && echo 'tl_p_…' > ~/.config/tracklines/key && chmod 600 ~/.config/tracklines/key\nsoit définissez TRACKLINES_API_KEY.",
+	"tracklines needs a terminal to draw in: run it from one, not from a script, a pipe or CI.": "tracklines a besoin d’un terminal pour s’afficher : lancez-le depuis un terminal, pas depuis un script, un pipe ou la CI.",
 	"unassigned": "non assigné",
 	"unsent drafts: comments and edits that didn't reach the server": "brouillons non envoyés : commentaires et modifications qui n’ont pas atteint le serveur",
 	"updating…":                         "mise à jour…",

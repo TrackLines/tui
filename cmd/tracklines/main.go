@@ -3,7 +3,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"time"
@@ -29,6 +31,19 @@ Make one at https://tracklin.es/account/api-keys, then either:
 or set TRACKLINES_API_KEY.`)
 }
 
+// noTerminalText is what to do when there's no terminal to draw in.
+func noTerminalText() string {
+	return i18n.T("tracklines needs a terminal to draw in: run it from one, not from a script, a pipe or CI.")
+}
+
+// noTerminal: Bubble Tea couldn't open a terminal (stdin isn't one and /dev/tty can't be opened: CI, cron,
+// an agent's shell). That's how it was started, not a crash, so it isn't reported to Bugfixes (TL-798).
+// ponytail: Run's only file open is the TTY, so any open error is that.
+func noTerminal(err error) bool {
+	var pe *fs.PathError
+	return errors.As(err, &pe) && pe.Op == "open"
+}
+
 func main() {
 	settings := config.Load(config.Path())
 	i18n.Set(settings.Language)
@@ -44,6 +59,11 @@ func main() {
 	client := &api.Client{Base: base, Key: key, HTTP: http.DefaultClient, OnFailure: reporting.APIFailure}
 	restore := reporting.Setup(version, settings.Reports)
 	_, err = tea.NewProgram(ui.New(client, ui.Options{Version: version, VimKeys: settings.VimKeys, BacklogSort: settings.BacklogSort, UpdateCheck: settings.UpdateCheck, Language: settings.Language}), tea.WithAltScreen(), tea.WithReportFocus()).Run()
+	if noTerminal(err) {
+		restore()
+		fmt.Fprintln(os.Stderr, noTerminalText())
+		os.Exit(1)
+	}
 	if err != nil {
 		// ponytail: Bubble Tea recovers a panic and prints its stack itself; Bugfixes gets that it happened
 		reporting.Report("tui stopped: %v", err)
