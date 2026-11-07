@@ -100,7 +100,7 @@ mkdir -p ~/.config/tracklines && cp config.example ~/.config/tracklines/config
 | Name | Values |
 |---|---|
 | `keys` | `vim` (the default): writing a ticket or comment works like vim. Typing is insert mode, `esc` is normal mode, and `:w` / `:wq` save, `:q` leaves (refused over unsaved text), `:q!` discards. `standard`: no modes; `ctrl+s` saves and `esc` cancels (twice over unsaved text). `ctrl+s` saves with either. |
-| `backlog_sort` | The order a backlog opens in: `manual` (the backlog's own order, the default), `newest` or `oldest`. `s` still cycles from there. |
+| `backlog_sort` | The order a backlog opens in: `manual` (the backlog's own order, the default), `newest`, `oldest` or `priority` (urgent first, low last). `s` still cycles from there. In My work, Created and search, `s` switches between their own order and priority. |
 | `reports` | `on` (the default) sends the TUI's own failures to Bugfixes; `off` doesn't. Never your key, searches or what you wrote. |
 | `update_check` | `on` (the default): a release build looks for a newer release when it starts. `off` doesn't. |
 | `language` | `system` (the default): your locale (`LC_ALL`, `LC_MESSAGES`, `LANG`), when it's a language the TUI has, else English. `en` English, `nl` Nederlands, `de` Deutsch, `es` Español, `pt` Português (Brasil), `fr` Français, `tlh` tlhIngan Hol (Klingon, for fun). Only the TUI's own words change: tickets, comments, names and keys stay as written. |

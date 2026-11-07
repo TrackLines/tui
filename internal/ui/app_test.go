@@ -393,7 +393,7 @@ func TestCreatingTickets(t *testing.T) {
 	expect(t, a, "A title, please.")
 	press(a, "Add SSO", "ctrl+s")
 	expect(t, a, "This board needs an estimate.")
-	press(a, "tab", "right", "tab", "right", "right", "tab", "right") // bug, high, estimate 1
+	press(a, "tab", "right", "tab", "right", "right", "tab", "right") // bug, medium → low → urgent (urgent first, TL-848), estimate 1
 	press(a, "ctrl+s")
 	c := last(calls)
 	for _, want := range []string{"POST /api/columns/c1/tickets", `"title":"Add SSO"`, `"type":"bug"`, `"priority":"urgent"`, `"estimate":"1"`} {
@@ -675,7 +675,12 @@ func TestBacklogSortAndLabels(t *testing.T) {
 	if !strings.Contains(last(calls), "sort=newest") {
 		t.Fatalf("sort: %s", last(calls))
 	}
-	press(a, "s", "s") // oldest, then back to the backlog's own order (no sort sent)
+	press(a, "s", "s") // oldest, then priority: urgent first (TL-848)
+	expect(t, a, "sort: priority")
+	if !strings.Contains(last(calls), "sort=priority") {
+		t.Fatalf("priority sort: %s", last(calls))
+	}
+	press(a, "s") // back to the backlog's own order (no sort sent)
 	if strings.Contains(last(calls), "sort=") {
 		t.Fatalf("manual sort sent: %s", last(calls))
 	}
@@ -1693,4 +1698,41 @@ func TestFailedCreateKeepsTheForm(t *testing.T) {
 	apiDown = false
 	press(a, "ctrl+s")
 	expect(t, a, "Created TL-9.")
+}
+
+// TL-848: outside a backlog, s switches a list between its own order and priority (urgent first, low
+// last, each level in the order it came, an unknown level last); a backlog sorts on the server.
+func TestByPriority(t *testing.T) {
+	items := []Ticket{{Key: "a", Priority: "low"}, {Key: "b", Priority: "urgent"}, {Key: "c", Priority: "semi"},
+		{Key: "d", Priority: "medium"}, {Key: "e", Priority: "urgent"}, {Key: "f", Priority: "high"}}
+	byPriority(items)
+	var got []string
+	for _, it := range items {
+		got = append(got, it.Key)
+	}
+	if strings.Join(got, "") != "befdac" {
+		t.Fatalf("order: %v", got)
+	}
+	old := priorities
+	defer func() { priorities = old }()
+	priorities = []string{"urgent", "semi", "high", "medium", "low"} // the backend added a level
+	byPriority(items)
+	got = got[:0]
+	for _, it := range items {
+		got = append(got, it.Key)
+	}
+	if strings.Join(got, "") != "becfda" {
+		t.Fatalf("with a new level: %v", got)
+	}
+
+	v := &listView{tag: "", allItems: []Ticket{{Key: "x", Priority: "low"}, {Key: "y", Priority: "urgent"}}}
+	v.applyFilters(&app{})
+	v.update(&app{}, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("s")})
+	if v.sort != "priority" || v.items[0].Key != "y" || !strings.Contains(v.help(), "sort by priority") {
+		t.Fatalf("s on My work: %q %v", v.sort, v.items)
+	}
+	v.update(&app{}, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("s")})
+	if v.sort != "" || v.items[0].Key != "x" {
+		t.Fatalf("s again: %q %v", v.sort, v.items)
+	}
 }

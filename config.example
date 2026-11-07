@@ -13,6 +13,7 @@ keys = vim
 #   manual  the backlog's own order
 #   newest  newest first
 #   oldest  oldest first
+#   priority  urgent first, low last
 backlog_sort = manual
 
 # Send the TUI's own failures (the API failing or unreachable, a crash) to Bugfixes so they get fixed.

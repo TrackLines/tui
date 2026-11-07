@@ -66,8 +66,23 @@ func (v *listView) applyFilters(a *app) {
 			}
 		}
 	}
+	if v.sort == "priority" && v.project == "" { // a backlog is sorted by the server; other lists here
+		byPriority(v.items)
+	}
 	v.cursor = min(v.cursor, max(0, len(v.items)-1))
 	v.hscroll = 0
+}
+
+// byPriority puts urgent first and low last (the order of priorities), keeping each level's tickets in
+// the order they came in; a level we don't know goes last.
+func byPriority(items []Ticket) {
+	rank := func(p string) int {
+		if i := indexOf(priorities, p); i >= 0 {
+			return i
+		}
+		return len(priorities)
+	}
+	slices.SortStableFunc(items, func(a, b Ticket) int { return rank(a.Priority) - rank(b.Priority) })
 }
 
 func (v *listView) filterSummary() string {
@@ -194,7 +209,7 @@ func (v *filterEditor) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 				a.status = T("Choose a listed ticket type.")
 				return v, nil
 			}
-			if f.Priority != "" && !slices.Contains([]string{"urgent", "high", "medium", "low"}, f.Priority) {
+			if f.Priority != "" && !slices.Contains(priorities, f.Priority) {
 				a.status = T("Choose a listed priority.")
 				return v, nil
 			}

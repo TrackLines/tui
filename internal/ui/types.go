@@ -44,7 +44,7 @@ var (
 type Options struct {
 	Version     string // this build's, for the ? screen and update checks
 	VimKeys     bool   // config: keys = vim (true) or standard
-	BacklogSort string // config: backlog_sort = manual, newest or oldest
+	BacklogSort string // config: backlog_sort = manual, newest, oldest or priority
 	UpdateCheck bool   // config: update_check = on or off
 	Language    string // config: language = system, en or nl (TL-604)
 }

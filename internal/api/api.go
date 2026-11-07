@@ -43,14 +43,14 @@ type Ticket struct {
 	// a spike's timebox (TL-502): days + hours as entered; nil when not a spike or not yet timed
 	TimeboxDays  *int    `json:"timebox_days"`
 	TimeboxHours *int    `json:"timebox_hours"`
-	DueDate      *string `json:"due_date"`   // YYYY-MM-DD, or null (TL-640)
+	DueDate      *string `json:"due_date"` // YYYY-MM-DD, or null (TL-640)
 	// a flags.gg feature flag that follows it across the board (TL-793): its name, and what flags.gg last refused
 	NeedsFlag bool    `json:"needs_flag"`
 	FlagName  *string `json:"flag_name"`
 	FlagError *string `json:"flag_error"`
-	StartedAt    *string `json:"started_at"` // first move into In Progress; drives the timebox countdown (TL-506)
-	DoneAt       *string `json:"done_at"`
-	UpdatedAt    string  `json:"updated_at"` // an edit draft checks it before resending (TL-599)
+	StartedAt *string `json:"started_at"` // first move into In Progress; drives the timebox countdown (TL-506)
+	DoneAt    *string `json:"done_at"`
+	UpdatedAt string  `json:"updated_at"` // an edit draft checks it before resending (TL-599)
 	// where it sits in the tree (TL-514): the ticket it's a sub-ticket of, its own sub-tickets, and
 	// an epic's progress over them; only the single-ticket endpoint fills these
 	BlockedBy []Dependency  `json:"blocked_by"`
@@ -249,6 +249,20 @@ func (c *Client) MyCreated(ctx context.Context) ([]Ticket, error) {
 // Search is full-text over titles, descriptions and comments; a ticket key comes first.
 func (c *Client) Search(ctx context.Context, q string) ([]Ticket, error) {
 	return c.search(ctx, url.Values{"q": {q}, "limit": {"50"}})
+}
+
+// Priority is a priority level (TL-848): GET /api/priorities lists them most urgent first.
+type Priority struct {
+	Key  string `json:"key"`
+	Name string `json:"name"`
+}
+
+// Priorities are the levels, most urgent first; an older backend without the route errors, and the
+// caller keeps the four it ships with.
+func (c *Client) Priorities(ctx context.Context) ([]Priority, error) {
+	var out []Priority
+	err := c.do(ctx, http.MethodGet, "/priorities", nil, &out)
+	return out, err
 }
 
 func (c *Client) search(ctx context.Context, q url.Values) ([]Ticket, error) {
