@@ -245,6 +245,8 @@ var tlh = map[string]string{
 	"not estimated":                      "pIHlu'be'",
 	"not sent: %s":                       "ngeHlu'be': %s",
 	"not set":                            "cherlu'be'",
+	"priority":                           "potlh",
+	" · s sort by priority":              " · s potlh yInaQmoH",
 	"oldest":                             "ngo'qu'",
 	"over by %s":                         "%s juS",
 	"parent:":                            "vav:",

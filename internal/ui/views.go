@@ -43,7 +43,7 @@ type listView struct {
 	hscroll      int      // how far the selected row's title is slid along (h/l), in characters
 	titleW       int      // the titles' width when last drawn, which caps hscroll
 	inactive     bool     // a section that isn't focused: no cursor shown
-	sort         string   // backlog: manual (its own order), newest or oldest
+	sort         string   // backlog: manual (its own order), newest, oldest or priority; other lists: "" or priority (TL-848)
 	labels       []string // backlog: only tickets with any of these
 	inUse        []Label  // backlog: the labels its tickets have, for the filter
 }
@@ -53,7 +53,7 @@ type filteredMentions struct {
 	mentions []Mention
 }
 
-var sorts = []string{"manual", "newest", "oldest"}
+var sorts = []string{"manual", "newest", "oldest", "priority"} // a backlog's; priority is urgent first (TL-848)
 
 func (v *listView) load(a *app) tea.Cmd {
 	return fetch(v.tag, func(ctx context.Context) (any, error) {
@@ -149,6 +149,15 @@ func (v *listView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 				v.cursor, a.loading = 0, true
 				return v, v.load(a)
 			}
+			if v.tag != "mentions" { // My work, created, search: their own order, or urgent first (TL-848)
+				if v.sort == "priority" {
+					v.sort = ""
+				} else {
+					v.sort = "priority"
+				}
+				v.cursor = 0
+				v.applyFilters(a)
+			}
 		case "f":
 			if v.project != "" {
 				return v, msgOf(pushMsg{&labelsView{list: v}})
@@ -177,6 +186,8 @@ func (v *listView) render(a *app) string {
 		if len(v.labels) > 0 {
 			b.WriteString(muted.Render("  · "+T("labels:")+" ") + strings.Join(v.labels, ", "))
 		}
+	} else if v.sort == "priority" {
+		b.WriteString(muted.Render("  · " + F("sort: %s", T("priority"))))
 	}
 	if summary := v.filterSummary(); summary != "" {
 		b.WriteString("\n" + muted.Render(summary))
@@ -268,6 +279,9 @@ func (v *listView) help() string {
 	}
 	if v.query != "" {
 		h = T("j/k move · h/l scroll title · enter open · / search again · r retry · esc/q back · Q quit")
+	}
+	if v.project == "" && v.tag != "mentions" {
+		h += T(" · s sort by priority")
 	}
 	return h + T(" · F filters · V saved views · ctrl+x clear")
 }
@@ -1453,8 +1467,10 @@ func (v *commentView) help() string { return editHelp() }
 func (v *commentView) typing() bool { return true }
 
 var (
-	types      = []string{"task", "bug", "feature", "spike"}
-	priorities = []string{"low", "medium", "high", "urgent"}
+	types = []string{"task", "bug", "feature", "spike"}
+	// priorities run most urgent first (TL-848): GET /api/priorities replaces them at start, so a level
+	// the backend adds later shows up; an older backend keeps these four.
+	priorities = []string{"urgent", "high", "medium", "low"}
 )
 
 // formView creates a ticket (in a column, or a project's backlog) or edits one: title, type,
@@ -1517,7 +1533,7 @@ const (
 )
 
 func newForm(t *Ticket, project, column, scale string) *formView {
-	f := &formView{editing: t, project: project, column: column, scale: scale, prio: 1, estimate: -1, timeboxDays: -1, timeboxHours: -1, typingTitle: true}
+	f := &formView{editing: t, project: project, column: column, scale: scale, prio: max(0, indexOf(priorities, "medium")), estimate: -1, timeboxDays: -1, timeboxHours: -1, typingTitle: true}
 	f.title = textinput.New()
 	f.title.Placeholder = T("Title")
 	f.title.CharLimit = 200

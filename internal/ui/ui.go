@@ -181,8 +181,21 @@ func (a *app) Init() tea.Cmd {
 			return nil // the default week, until next time
 		}
 		return weeksMsg{w}
+	}, func() tea.Msg {
+		ps, err := a.api.Priorities(context.Background())
+		if err != nil || len(ps) == 0 {
+			return nil // an older backend: the four we ship with
+		}
+		keys := make(prioritiesMsg, len(ps))
+		for i, p := range ps {
+			keys[i] = p.Key
+		}
+		return keys
 	})
 }
+
+// prioritiesMsg is the backend's priority levels, most urgent first (TL-848).
+type prioritiesMsg []string
 
 // checkUpdate looks for a newer release, quietly: no network, no answer, nothing shown.
 func (a *app) checkUpdate() tea.Cmd {
@@ -236,6 +249,9 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case weeksMsg:
 		a.weeks = &msg.weeks
+		return a, nil
+	case prioritiesMsg:
+		priorities = msg // ponytail: one list for the whole TUI, set once at start
 		return a, nil
 	case refreshTick:
 		if a.away {

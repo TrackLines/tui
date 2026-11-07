@@ -245,6 +245,8 @@ var nl = map[string]string{
 	"not estimated":                      "niet geschat",
 	"not sent: %s":                       "niet verzonden: %s",
 	"not set":                            "niet ingesteld",
+	"priority":                           "prioriteit",
+	" · s sort by priority":              " · s sorteren op prioriteit",
 	"oldest":                             "oudste",
 	"over by %s":                         "%s over tijd",
 	"parent:":                            "bovenliggend:",

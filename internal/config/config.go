@@ -15,8 +15,8 @@ type Settings struct {
 	// VimKeys: writing tickets and comments works like vim (modes, :w, :q), the default; keys =
 	// standard turns that off: no modes, ctrl+s saves, esc cancels (TL-475).
 	VimKeys bool
-	// BacklogSort is the order a backlog opens in: manual (its own order, the default), newest or
-	// oldest; s still cycles from there (TL-481).
+	// BacklogSort is the order a backlog opens in: manual (its own order, the default), newest, oldest
+	// or priority (urgent first, TL-848); s still cycles from there (TL-481).
 	BacklogSort string
 	// Reports: our own failures (the API failing, a crash) go to Bugfixes, so they get fixed.
 	Reports bool
@@ -70,7 +70,7 @@ func Load(path string) Settings {
 				s.VimKeys = false
 			}
 		case "backlog_sort":
-			if v := strings.TrimSpace(value); v == "manual" || v == "newest" || v == "oldest" {
+			if v := strings.TrimSpace(value); v == "manual" || v == "newest" || v == "oldest" || v == "priority" {
 				s.BacklogSort = v
 			}
 		case "reports":

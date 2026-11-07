@@ -245,6 +245,8 @@ var es = map[string]string{
 	"not estimated":                      "sin estimar",
 	"not sent: %s":                       "no enviado: %s",
 	"not set":                            "sin definir",
+	"priority":                           "prioridad",
+	" · s sort by priority":              " · s ordenar por prioridad",
 	"oldest":                             "más antiguos",
 	"over by %s":                         "excedido en %s",
 	"parent:":                            "padre:",
