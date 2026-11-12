@@ -152,6 +152,8 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 			return
 		case p == "/api/search" && r.URL.Query().Get("creator") == "me":
 			out = []any{map[string]any{"id": "t2", "key": "TL-2", "title": "Idea"}} // Created by me
+		case p == "/api/search" && r.URL.Query().Get("q") == "TL-2":
+			out = []any{map[string]any{"id": "t2", "key": "TL-2", "title": "Idea"}}
 		case p == "/api/search" && r.URL.Query().Get("q") == "nothing":
 			out = []any{}
 		case p == "/api/search" && r.URL.Query().Get("q") == "flaky" && flaky == 0:
@@ -783,6 +785,18 @@ func TestSearchResults(t *testing.T) {
 	press(a, "/")
 	expect(t, a, "/ tl-1") // the same words, to change
 	press(a, "esc", "q")
+	expect(t, a, "My work")
+}
+
+// a key with one result opens it, no list; esc goes back to where the search started.
+func TestSearchKeyOneResultOpens(t *testing.T) {
+	a, _ := start(t)
+	press(a, "/", "TL-2", "enter")
+	expect(t, a, "Idea")
+	if strings.Contains(a.View(), "Search: TL-2") {
+		t.Fatalf("list shown:\n%s", a.View())
+	}
+	press(a, "esc")
 	expect(t, a, "My work")
 }
 

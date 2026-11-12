@@ -102,6 +102,7 @@ func (v *listView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		if msg.tag != v.tag {
 			return v, nil
 		}
+		first := !v.loaded
 		v.items, v.mentions, v.loaded = nil, nil, true
 		switch d := msg.data.(type) {
 		case filteredMentions:
@@ -120,6 +121,10 @@ func (v *listView) update(a *app, msg tea.Msg) (view, tea.Cmd) {
 		v.applyFilters(a)
 		v.cursor = min(v.cursor, max(len(v.items)-1, 0))
 		v.hscroll = 0
+		// a key searched for with one result: open it, no list (a reload keeps the list)
+		if first && v.query != "" && validKey.MatchString(strings.TrimSpace(v.query)) && len(v.items) == 1 {
+			return v, msgOf(replaceMsg{v: &ticketView{id: v.items[0].ID}})
+		}
 	case tea.KeyMsg:
 		k := msg.String()
 		if cursorKeys(k, &v.cursor, len(v.items)) {
