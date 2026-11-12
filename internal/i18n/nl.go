@@ -2,6 +2,20 @@ package i18n
 
 // nl is Dutch: English text → Nederlands. A missing entry shows the English (i18n_test finds it).
 var nl = map[string]string{
+	// notifications (TL-886)
+	"Notifications":              "Meldingen",
+	"N %d unread":                "N %d ongelezen",
+	"You’re all caught up.":      "Je bent helemaal bij.",
+	"Reminder: %s":               "Herinnering: %s",
+	"Someone":                    "Iemand",
+	"Cleared.":                   "Gewist.",
+	"Couldn’t clear it":          "Kon niet wissen",
+	"All read.":                  "Alles gelezen.",
+	"Couldn’t mark them read":    "Kon ze niet als gelezen markeren",
+	"Open it on the website: %s": "Open het op de website: %s",
+	"j/k move · enter open · x clear · a mark all read · r reload · esc/q back": "j/k bewegen · enter openen · x wissen · a alles gelezen · r herladen · esc/q terug",
+	"notifications (on Linux, new ones also go to the desktop)":                 "meldingen (op Linux gaan nieuwe ook naar het bureaublad)",
+
 	"open": "open",
 
 	"Blocked by":           "Geblokkeerd door",

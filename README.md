@@ -43,7 +43,7 @@ It's for the everyday work. You can follow a standup or refinement someone's run
 
 ## Keys
 
-Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most used projects · `/` search everything · `t` go to a ticket by its key (`TL-308` or `tl-308`) · `D` unsent drafts · `esc` or `q` back (on My work and Projects, `q` quits) · `Q` quit from anywhere · `?` your version, updates and these keys; `h` there opens the help answers.
+Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most used projects · `/` search everything · `t` go to a ticket by its key (`TL-308` or `tl-308`) · `N` notifications · `D` unsent drafts · `esc` or `q` back (on My work and Projects, `q` quits) · `Q` quit from anywhere · `?` your version, updates and these keys; `h` there opens the help answers.
 
 | Screen | Keys |
 |---|---|
@@ -59,6 +59,7 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most u
 | Ticket | `j`/`k` scroll · `e` edit · `m` move to a column · `c` comment · `a` assign to you (again: unassign) · `tab` pick a sub-ticket or file, `enter` open it · `o` open a picked file in your system's viewer (`xdg-open`; `open` on macOS) · `u` attach a file · `d` remove the picked file (asks first; yours, or any if you're an org admin) · `p` open the parent · `b` browse blocking tickets (project, title and open/done status; `enter` opens the selected blocker, `esc` returns) · `h` its history (everything that happened to it — columns, assignment, edits, labels, comments, files, pull requests — who did it and when; newest first. Edits to text say only that they happened) · `r` reload |
 | New / edit ticket | Typing is insert mode; `esc` leaves it. Then `tab` or `j`/`k` field · `i`/`enter` edit · `h`/`l` change type, priority, estimate, and spike timebox · on the due date: `h`/`l` a day, `H`/`L` a week, `x` clears · `q` cancel · `ctrl+s` save (any time) · `ctrl+o` create and attach a file (new tickets) |
 | Attach a file (`u`) | type or paste a path, or drop a file on the terminal · `tab` completes it (lists the choices when there are several) · `enter` uploads it with its progress · `esc` cancels the upload, or goes back. Up to 10 MB a file and 10 files a ticket; not on a done ticket. The file goes through the TrackLin.es API, so the TUI never needs the file store's key. |
+| Notifications (`N`) | `j`/`k` · `enter` read it and open its ticket or board · `x` clear · `a` mark all read · `r` reload |
 | Drafts (`D`) | `j`/`k` · `r` send again · `x` discard · `enter` open its ticket (`c` or `e` there picks the draft up to change it first) |
 | Board / project | `f` follows its standup / refinement, when one's running (the banner says so) |
 | Following | it moves with the host: who's here, whose turn, the ticket they have open · `esc`/`q` leave |
@@ -72,6 +73,7 @@ Everywhere: `1` My work (with Mentions) · `2` Projects · `3`–`5` your most u
 - Boards that use estimates ask for one when you create a ticket there.
 - **Due dates** count down by day, in your local day: "due in 3 days", "due tomorrow", "due today", then "2 days overdue" (red). They show in lists and on the ticket, and go once it's done.
 - Choose `spike` to set an optional timebox in days (0–60) and hours (0–23); `not set` is available for either. Changing to another type clears the timebox.
+- **Notifications.** The header shows how many are unread, and `N` lists them, as the website's bell. The TUI looks for new ones every 30 seconds, even while its terminal isn't focused, and on Linux each new one also goes to the desktop through the D-Bus notification service (`notify-send`'s; nothing is sent without a session bus). An urgent one (the backend asks policy2 which are) opens the list once, on whichever client sees it first, never over something you're typing.
 - **Drafts.** A comment or an edit that can't be sent (the API down, the connection gone) isn't lost: it's kept in `~/.local/state/tracklines/drafts.json` (under `$XDG_STATE_HOME` if set) until it's sent or you discard it, through restarts too, and the TUI says how many are waiting when it starts. Nothing is resent on its own: `D` lists them and `r` sends one again. A comment that got through before the connection dropped isn't posted twice, and an edit to a ticket someone has changed since isn't sent over their changes: open it and `e` shows your edit with a warning, to compare and save if you still want it.
 - **Help answers** are the ones in the web app's help panel, written by the TrackLin.es team. They're built in, so help works offline, and the TUI checks for newer ones when it starts and every minute after, swapping them in without a restart. The latest copy is kept in `~/.local/state/tracklines/help.<language>.json` for the next start.
 - `m` on a backlog ticket picks a board, then a column, then an estimate if that board sizes tickets. When a move isn't allowed (a read-only key, a sprint on its last day), the TUI says why.

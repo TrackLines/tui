@@ -86,6 +86,7 @@ func (v *aboutView) render(a *app) string {
 		{"V", T("saved views: open, save, rename or delete")},
 		{"ctrl+x", T("clear all filters on the current ticket list")},
 		{"t", T("go to a ticket by its key (TL-308)")},
+		{"N", T("notifications (on Linux, new ones also go to the desktop)")},
 		{"D", T("unsent drafts: comments and edits that didn't reach the server")},
 		{"esc / q", T("back (q quits on My work and Projects)")},
 		{"Q", T("quit from anywhere")},

@@ -2,6 +2,20 @@ package i18n
 
 // de is German: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var de = map[string]string{
+	// notifications (TL-886)
+	"Notifications":              "Benachrichtigungen",
+	"N %d unread":                "N %d ungelesen",
+	"You’re all caught up.":      "Du bist auf dem neuesten Stand.",
+	"Reminder: %s":               "Erinnerung: %s",
+	"Someone":                    "Jemand",
+	"Cleared.":                   "Entfernt.",
+	"Couldn’t clear it":          "Konnte nicht entfernt werden",
+	"All read.":                  "Alle gelesen.",
+	"Couldn’t mark them read":    "Konnten nicht als gelesen markiert werden",
+	"Open it on the website: %s": "Auf der Website öffnen: %s",
+	"j/k move · enter open · x clear · a mark all read · r reload · esc/q back": "j/k bewegen · enter öffnen · x entfernen · a alle gelesen · r neu laden · esc/q zurück",
+	"notifications (on Linux, new ones also go to the desktop)":                 "Benachrichtigungen (unter Linux kommen neue auch auf den Desktop)",
+
 	"open": "offen",
 
 	"Blocked by":           "Blockiert durch",

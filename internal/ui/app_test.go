@@ -37,7 +37,8 @@ var (
 	// closed or the TUI gives up; removeForbidden: the file isn't yours to remove
 	uploadFails, removeForbidden bool
 	uploadHold                   chan struct{}
-	callsMu                      sync.Mutex // guards fakeAPI's calls while requests are in flight
+	fakeNotices                  []map[string]any // the bell's list (TL-886); unread ones have no read_at
+	callsMu                      sync.Mutex       // guards fakeAPI's calls while requests are in flight
 )
 
 // fakeAPI is TrackLin.es for Sam: project TL with a Web board (To do → In progress → Done, Fibonacci
@@ -211,6 +212,16 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 			w.Header().Set("ETag", `"h2"`)
 			out = []map[string]any{{"slug": "fresh", "question": "How do I add another board?", "answer": "From the API: Edit project → Boards.",
 				"href": "/projects/[project]/edit", "fallback_href": "", "pages": []string{"project"}, "words": "board"}}
+		case p == "/api/notifications/unread-count":
+			n := 0
+			for _, x := range fakeNotices {
+				if x["read_at"] == nil {
+					n++
+				}
+			}
+			out = map[string]any{"count": n}
+		case p == "/api/notifications" && r.Method == http.MethodGet:
+			out = fakeNotices
 		case p == "/api/assignees":
 			out = []map[string]any{{"id": "user_1", "label": "You", "name": "Sam Doe"}, {"id": "user_2", "label": "Alex", "name": "Alex Roe"}, {"id": "Claude", "label": "Claude", "kind": "ai"}}
 		case p == "/api/projects":

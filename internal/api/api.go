@@ -124,6 +124,23 @@ type Mention struct {
 	MentionedAt string `json:"mentioned_at"`
 }
 
+// Notification is one in the bell (TL-886): read_at nil is unread; urgent ones open the notifications
+// once, then shown_at is set.
+type Notification struct {
+	ID        string  `json:"id"`
+	Kind      string  `json:"kind"`
+	Text      string  `json:"text"`
+	Actor     string  `json:"actor"`
+	TicketID  *string `json:"ticket_id"`
+	TicketKey *string `json:"ticket_key"`
+	BoardID   *string `json:"board_id"`
+	Link      *string `json:"link"`
+	CreatedAt string  `json:"created_at"`
+	ReadAt    *string `json:"read_at"`
+	Urgent    bool    `json:"urgent"`
+	ShownAt   *string `json:"shown_at"`
+}
+
 type Column struct {
 	ID      string   `json:"id"`
 	Name    string   `json:"name"`
@@ -511,6 +528,38 @@ func (c *Client) Mentions(ctx context.Context) ([]Mention, error) {
 	}
 	err := c.do(ctx, http.MethodGet, "/mentions/page?page=1&per_page=50&hide_done=true", nil, &out)
 	return out.Mentions, err
+}
+
+// Notifications are yours, unread first, then newest (TL-886).
+func (c *Client) Notifications(ctx context.Context) ([]Notification, error) {
+	var out []Notification
+	err := c.do(ctx, http.MethodGet, "/notifications?page=1&per_page=50", nil, &out)
+	return out, err
+}
+
+func (c *Client) UnreadCount(ctx context.Context) (int, error) {
+	var out struct {
+		Count int `json:"count"`
+	}
+	err := c.do(ctx, http.MethodGet, "/notifications/unread-count", nil, &out)
+	return out.Count, err
+}
+
+func (c *Client) ReadNotification(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodPost, "/notifications/"+url.PathEscape(id)+"/read", nil, nil)
+}
+
+func (c *Client) ReadAllNotifications(ctx context.Context) error {
+	return c.do(ctx, http.MethodPost, "/notifications/read-all", nil, nil)
+}
+
+func (c *Client) DismissNotification(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodDelete, "/notifications/"+url.PathEscape(id), nil, nil)
+}
+
+// NotificationShown: an urgent one opened the notifications here, so no client does again (TL-886).
+func (c *Client) NotificationShown(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodPost, "/notifications/"+url.PathEscape(id)+"/shown", nil, nil)
 }
 
 // Create makes a ticket at the bottom of a column (joining the board's sprint), or, with no column,

@@ -14,6 +14,7 @@ import (
 
 	"github.com/tracklines/tui/internal/api"
 	"github.com/tracklines/tui/internal/config"
+	"github.com/tracklines/tui/internal/desktop"
 	"github.com/tracklines/tui/internal/drafts"
 	"github.com/tracklines/tui/internal/help"
 	"github.com/tracklines/tui/internal/i18n"
@@ -60,6 +61,10 @@ type app struct {
 	drafts        drafts.Store      // comments and edits that didn't reach the server (TL-599)
 	favourites    []usage.Favourite // tabs 3–5: the projects you open most (TL-477)
 	help          *help.Store       // the help answers, kept up to date in the background (TL-657)
+	desktop       desktop.Notifier  // new notifications on the desktop too (TL-886)
+	unread        int               // the header's count
+	unreadSeen    int               // the count the list was last fetched at; -1: fetch it next time
+	noticesSince  string            // the desktop has been told about everything up to here (RFC 3339)
 }
 
 type (
@@ -93,7 +98,8 @@ type (
 )
 
 func newApp(api *Client) *app {
-	a := &app{api: api, usage: usage.Load(), drafts: drafts.Load()}
+	a := &app{api: api, usage: usage.Load(), drafts: drafts.Load(), desktop: newDesktop(), unreadSeen: -1,
+		noticesSince: time.Now().UTC().Format(time.RFC3339)} // only what arrives from now on goes to the desktop
 	dir, _ := config.StateDir() // ponytail: no state dir, no cache: the baked answers, then the API's
 	a.help = help.Open(i18n.Lang(), dir)
 	a.favourites = a.usage.Top(3)
@@ -164,7 +170,7 @@ func (a *app) refresh() tea.Cmd {
 		return nil
 	}
 	switch v.(type) {
-	case *homeView, *listView, *projectsView, *projectView, *boardView, *ticketView, *historyView:
+	case *homeView, *listView, *projectsView, *projectView, *boardView, *ticketView, *historyView, *notificationsView:
 		return v.load(a)
 	}
 	return nil
@@ -172,7 +178,7 @@ func (a *app) refresh() tea.Cmd {
 
 func (a *app) Init() tea.Cmd {
 	a.loading = true
-	return tea.Batch(a.top().load(a), a.checkUpdate(), refreshLater(), a.fetchHelp(), func() tea.Msg {
+	return tea.Batch(a.top().load(a), a.checkUpdate(), refreshLater(), a.fetchHelp(), a.pollNotices(), noticesLater(), func() tea.Msg {
 		p, me, _ := a.api.People(context.Background()) // ponytail: without names, comments show ids; not worth an error
 		return peopleMsg{p, me}
 	}, func() tea.Msg {
@@ -258,6 +264,19 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, refreshLater()
 		}
 		return a, tea.Batch(refreshLater(), a.refresh(), a.fetchHelp())
+	case noticeTick: // even while away: the desktop still hears about new ones
+		return a, tea.Batch(noticesLater(), a.pollNotices())
+	case noticesMsg:
+		return a, a.notices(msg)
+	case urgentShownMsg:
+		if msg.err != nil {
+			a.unreadSeen = -1 // try again on the next look
+			return a, nil
+		}
+		if _, already := a.top().(*notificationsView); already {
+			return a, a.top().load(a)
+		}
+		return a, msgOf(pushMsg{&notificationsView{}})
 	case helpUpdatedMsg:
 		return a, nil // the help screen, if it's showing, redraws with them
 	case tea.BlurMsg:
@@ -365,6 +384,10 @@ func (a *app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if _, already := a.top().(*draftsView); !already {
 					return a, msgOf(pushMsg{&draftsView{sending: map[string]bool{}}})
 				}
+			case "N": // notifications (TL-886)
+				if _, already := a.top().(*notificationsView); !already {
+					return a, msgOf(pushMsg{&notificationsView{}})
+				}
 			case "t": // go to a ticket by its key
 				return a, msgOf(pushMsg{newGoto()})
 			case "esc", "backspace":
@@ -393,6 +416,9 @@ func (a *app) View() string {
 		foot = muted.Render(T("Loading…")+"  ") + foot
 	} else if a.status != "" {
 		foot = a.status + "\n" + foot
+	}
+	if a.unread > 0 {
+		head = append(head, accent.Render(" "+F("N %d unread", a.unread)))
 	}
 	if a.latest != nil {
 		head = append(head, ok.Render(" "+F("%s is out · ? to update", a.latest.Tag)))
