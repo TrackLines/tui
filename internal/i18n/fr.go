@@ -2,6 +2,20 @@ package i18n
 
 // fr is French: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var fr = map[string]string{
+	// notifications (TL-886)
+	"Notifications":              "Notifications",
+	"N %d unread":                "N %d non lues",
+	"You’re all caught up.":      "Vous êtes à jour.",
+	"Reminder: %s":               "Rappel : %s",
+	"Someone":                    "Quelqu’un",
+	"Cleared.":                   "Effacée.",
+	"Couldn’t clear it":          "Impossible de l’effacer",
+	"All read.":                  "Tout est lu.",
+	"Couldn’t mark them read":    "Impossible de les marquer comme lues",
+	"Open it on the website: %s": "Ouvrez-la sur le site : %s",
+	"j/k move · enter open · x clear · a mark all read · r reload · esc/q back": "j/k déplacer · entrée ouvrir · x effacer · a tout marquer lu · r recharger · échap/q retour",
+	"notifications (on Linux, new ones also go to the desktop)":                 "notifications (sous Linux, les nouvelles vont aussi sur le bureau)",
+
 	"open": "ouvert",
 
 	"Blocked by":           "Bloqué par",

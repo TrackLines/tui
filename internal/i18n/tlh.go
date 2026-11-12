@@ -2,6 +2,20 @@ package i18n
 
 // tlh is Klingon, for fun: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var tlh = map[string]string{
+	// notifications (TL-886)
+	"Notifications":              "De’ chu’mey",
+	"N %d unread":                "N %d De’ chu’ laDbe’lu’",
+	"You’re all caught up.":      "Hoch DaSovta’.",
+	"Reminder: %s":               "yIqaw: %s",
+	"Someone":                    "vay’",
+	"Cleared.":                   "teq.",
+	"Couldn’t clear it":          "teqlaHbe’",
+	"All read.":                  "Hoch laDlu’ta’.",
+	"Couldn’t mark them read":    "laDlu’ta’ net ghItlhlaHbe’",
+	"Open it on the website: %s": "Daq yIpoSmoH: %s",
+	"j/k move · enter open · x clear · a mark all read · r reload · esc/q back": "j/k vIH · enter poSmoH · x teq · a Hoch laD · r chu’qa’ · esc/q chegh",
+	"notifications (on Linux, new ones also go to the desktop)":                 "De’ chu’mey (Linux Daq, chu’ De’ ’oH raSDaq ghoS)",
+
 	"open": "ta’be’",
 
 	"Blocked by":           "botwI’",

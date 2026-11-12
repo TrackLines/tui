@@ -21,6 +21,7 @@ type (
 	TicketInput = api.TicketInput
 	Project     = api.Project
 	Mention     = api.Mention
+	Notice      = api.Notification
 	Column      = api.Column
 	Board       = api.Board
 	Comment     = api.Comment

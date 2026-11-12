@@ -2,6 +2,20 @@ package i18n
 
 // pt is Brazilian Portuguese: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var pt = map[string]string{
+	// notifications (TL-886)
+	"Notifications":              "Notificações",
+	"N %d unread":                "N %d não lidas",
+	"You’re all caught up.":      "Você está em dia.",
+	"Reminder: %s":               "Lembrete: %s",
+	"Someone":                    "Alguém",
+	"Cleared.":                   "Removida.",
+	"Couldn’t clear it":          "Não foi possível remover",
+	"All read.":                  "Todas lidas.",
+	"Couldn’t mark them read":    "Não foi possível marcá-las como lidas",
+	"Open it on the website: %s": "Abra no site: %s",
+	"j/k move · enter open · x clear · a mark all read · r reload · esc/q back": "j/k mover · enter abrir · x remover · a marcar tudo lido · r recarregar · esc/q voltar",
+	"notifications (on Linux, new ones also go to the desktop)":                 "notificações (no Linux, as novas também vão para a área de trabalho)",
+
 	"open": "aberto",
 
 	"Blocked by":           "Bloqueado por",

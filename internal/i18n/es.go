@@ -2,6 +2,20 @@ package i18n
 
 // es is Spanish: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var es = map[string]string{
+	// notifications (TL-886)
+	"Notifications":              "Notificaciones",
+	"N %d unread":                "N %d sin leer",
+	"You’re all caught up.":      "Estás al día.",
+	"Reminder: %s":               "Recordatorio: %s",
+	"Someone":                    "Alguien",
+	"Cleared.":                   "Quitada.",
+	"Couldn’t clear it":          "No se pudo quitar",
+	"All read.":                  "Todas leídas.",
+	"Couldn’t mark them read":    "No se pudieron marcar como leídas",
+	"Open it on the website: %s": "Ábrela en la web: %s",
+	"j/k move · enter open · x clear · a mark all read · r reload · esc/q back": "j/k mover · enter abrir · x quitar · a marcar todo leído · r recargar · esc/q atrás",
+	"notifications (on Linux, new ones also go to the desktop)":                 "notificaciones (en Linux, las nuevas también van al escritorio)",
+
 	"open": "abierto",
 
 	"Blocked by":           "Bloqueado por",
