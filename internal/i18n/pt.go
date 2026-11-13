@@ -2,6 +2,7 @@ package i18n
 
 // pt is Brazilian Portuguese: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var pt = map[string]string{
+	"created %s": "criado %s", // TL-887
 	// notifications (TL-886)
 	"Notifications":              "Notificações",
 	"N %d unread":                "N %d não lidas",

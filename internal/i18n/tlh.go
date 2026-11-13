@@ -2,6 +2,7 @@ package i18n
 
 // tlh is Klingon, for fun: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var tlh = map[string]string{
+	"created %s": "%s chenmoHlu’", // TL-887
 	// notifications (TL-886)
 	"Notifications":              "De’ chu’mey",
 	"N %d unread":                "N %d De’ chu’ laDbe’lu’",

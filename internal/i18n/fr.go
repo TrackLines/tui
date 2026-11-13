@@ -2,6 +2,7 @@ package i18n
 
 // fr is French: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var fr = map[string]string{
+	"created %s": "créé %s", // TL-887
 	// notifications (TL-886)
 	"Notifications":              "Notifications",
 	"N %d unread":                "N %d non lues",

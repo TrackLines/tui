@@ -50,6 +50,7 @@ type Ticket struct {
 	FlagError *string `json:"flag_error"`
 	StartedAt *string `json:"started_at"` // first move into In Progress; drives the timebox countdown (TL-506)
 	DoneAt    *string `json:"done_at"`
+	CreatedAt string  `json:"created_at"` // shown on the ticket (TL-887)
 	UpdatedAt string  `json:"updated_at"` // an edit draft checks it before resending (TL-599)
 	// where it sits in the tree (TL-514): the ticket it's a sub-ticket of, its own sub-tickets, and
 	// an epic's progress over them; only the single-ticket endpoint fills these

@@ -2,6 +2,7 @@ package i18n
 
 // nl is Dutch: English text → Nederlands. A missing entry shows the English (i18n_test finds it).
 var nl = map[string]string{
+	"created %s": "aangemaakt %s", // TL-887
 	// notifications (TL-886)
 	"Notifications":              "Meldingen",
 	"N %d unread":                "N %d ongelezen",
