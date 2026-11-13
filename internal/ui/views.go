@@ -1098,6 +1098,9 @@ func (v *ticketView) detail(a *app) string {
 	if t.Done {
 		meta = append(meta, ok.Render(T("done")))
 	}
+	if t.CreatedAt != "" {
+		meta = append(meta, F("created %s", when(t.CreatedAt))) // local time (TL-887)
+	}
 	b.WriteString(muted.Render(strings.Join(meta, " · ")) + "\n")
 	if line := flagLine(t, v.flag); line != "" {
 		b.WriteString(line + "\n")

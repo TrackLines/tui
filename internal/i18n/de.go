@@ -2,6 +2,7 @@ package i18n
 
 // de is German: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var de = map[string]string{
+	"created %s": "erstellt %s", // TL-887
 	// notifications (TL-886)
 	"Notifications":              "Benachrichtigungen",
 	"N %d unread":                "N %d ungelesen",

@@ -2,6 +2,7 @@ package i18n
 
 // es is Spanish: English text → its translation. A missing entry shows the English (i18n_test finds it).
 var es = map[string]string{
+	"created %s": "creado %s", // TL-887
 	// notifications (TL-886)
 	"Notifications":              "Notificaciones",
 	"N %d unread":                "N %d sin leer",

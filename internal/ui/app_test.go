@@ -54,7 +54,8 @@ func fakeAPI(t *testing.T) (*Client, *[]string) {
 			return map[string]any{"id": "t2", "key": "TL-2", "title": "Idea", "project_id": "p1"}
 		}
 		return map[string]any{"id": "t1", "key": "TL-1", "title": "Fix login", "description": "Login fails", "type": "bug", "priority": "urgent", "estimate": "3",
-			"project_id": "p1", "board_id": "b1", "board_name": "Web", "column_id": "c1", "column_name": "To do", "updated_at": ticketUpdated, "due_date": ticketDue}
+			"project_id": "p1", "board_id": "b1", "board_name": "Web", "column_id": "c1", "column_name": "To do", "updated_at": ticketUpdated, "due_date": ticketDue,
+			"created_at": "2026-10-20T09:30:00Z"}
 	}
 	board := map[string]any{"id": "b1", "name": "Web", "project_id": "p1", "style": "sprints", "estimate_scale": "fibonacci", "columns": []map[string]any{
 		{"id": "c1", "name": "To do", "tickets": []any{ticket("t1")}},
@@ -1760,4 +1761,11 @@ func TestByPriority(t *testing.T) {
 	if v.sort != "" || v.items[0].Key != "x" {
 		t.Fatalf("s again: %q %v", v.sort, v.items)
 	}
+}
+
+// A ticket says when it was created, in local time (TL-887).
+func TestTicketShowsWhenItWasCreated(t *testing.T) {
+	a, _ := start(t)
+	press(a, "t", "TL-1", "enter")
+	expect(t, a, "Fix login", "created "+when("2026-10-20T09:30:00Z"))
 }
