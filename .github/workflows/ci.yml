@@ -45,6 +45,7 @@ jobs:
         with:
           name: tracklines-${{ matrix.os }}-${{ matrix.arch }}
           path: tracklines-${{ matrix.os }}-${{ matrix.arch }}
+          retention-days: 7 # releases keep the binaries; CI copies only need to outlive the run
 
   # A v* tag publishes the binaries as a GitHub release. The release may already exist (made on GitHub,
   # which pushes the tag): then the binaries are added to it.
