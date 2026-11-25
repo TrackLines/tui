@@ -5,12 +5,13 @@ go 1.26.1
 toolchain go1.27.4
 
 require (
-	github.com/bugfixes/go-bugfixes v0.19.5
+	github.com/bugfixes/go-bugfixes v0.19.6
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/charmbracelet/x/ansi v0.11.9
-	golang.org/x/text v0.43.0
+	github.com/charmbracelet/x/ansi v0.11.10
+	github.com/godbus/dbus/v5 v5.2.4
+	golang.org/x/text v0.44.0
 )
 
 require (
@@ -23,7 +24,6 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
-	github.com/godbus/dbus/v5 v5.2.4 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
